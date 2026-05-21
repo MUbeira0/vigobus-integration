@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "VigoBus",
+        "description": "Integración buses realtime Vigo",
+        "data": {
+          "auto_nearest": "Parada cercana automática",
+          "nearest_name": "Nombre personalizado para la cercana",
+          "scan_interval": "Intervalo de actualización (segundos)",
+          "nearest_recalc_distance_m": "Distancia para recalcular cercana (metros)",
+          "notify_enabled": "Activar alertas automáticas",
+          "notify_minutes": "Umbral de alerta (minutos)",
+          "notify_cooldown_min": "Espera entre alertas (minutos)",
+          "alerts_lang": "Idioma de avisos (es/gl)",
+          "alerts_max_per_stop": "Máximo de avisos por parada",
+          "extra_stops": "Paradas extra (una por línea: id o id,nombre)"
+        }
+      }
+    },
+    "error": {
+      "invalid_extra_stops": "Hay líneas inválidas en paradas extra. Usa id,nombre o id;nombre."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones VigoBus",
+        "description": "Actualiza configuración de cercana y paradas extra.",
+        "data": {
+          "auto_nearest": "Parada cercana automática",
+          "nearest_name": "Nombre personalizado para la cercana",
+          "scan_interval": "Intervalo de actualización (segundos)",
+          "nearest_recalc_distance_m": "Distancia para recalcular cercana (metros)",
+          "notify_enabled": "Activar alertas automáticas",
+          "notify_minutes": "Umbral de alerta (minutos)",
+          "notify_cooldown_min": "Espera entre alertas (minutos)",
+          "alerts_lang": "Idioma de avisos (es/gl)",
+          "alerts_max_per_stop": "Máximo de avisos por parada",
+          "extra_stops": "Paradas extra (una por línea: id o id,nombre)"
+        }
+      }
+    },
+    "error": {
+      "invalid_extra_stops": "Hay líneas inválidas en paradas extra. Usa id,nombre o id;nombre."
+    }
+  }
+}

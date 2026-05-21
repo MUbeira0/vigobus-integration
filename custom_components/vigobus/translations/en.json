@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "VigoBus",
+        "description": "Realtime Vigo buses",
+        "data": {
+          "auto_nearest": "Automatic nearest stop",
+          "nearest_name": "Nearest stop custom name",
+          "scan_interval": "Update interval (seconds)",
+          "nearest_recalc_distance_m": "Nearest recalc distance (meters)",
+          "notify_enabled": "Enable automatic alerts",
+          "notify_minutes": "Alert threshold (minutes)",
+          "notify_cooldown_min": "Alert cooldown (minutes)",
+          "alerts_lang": "Alerts language (es/gl)",
+          "alerts_max_per_stop": "Max alerts per stop",
+          "extra_stops": "Extra stops (one per line: id or id,name)"
+        }
+      }
+    },
+    "error": {
+      "invalid_extra_stops": "Some extra stop lines are invalid. Use id,name or id;name."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "VigoBus options",
+        "description": "Update nearest behavior and extra stops.",
+        "data": {
+          "auto_nearest": "Automatic nearest stop",
+          "nearest_name": "Nearest stop custom name",
+          "scan_interval": "Update interval (seconds)",
+          "nearest_recalc_distance_m": "Nearest recalc distance (meters)",
+          "notify_enabled": "Enable automatic alerts",
+          "notify_minutes": "Alert threshold (minutes)",
+          "notify_cooldown_min": "Alert cooldown (minutes)",
+          "alerts_lang": "Alerts language (es/gl)",
+          "alerts_max_per_stop": "Max alerts per stop",
+          "extra_stops": "Extra stops (one per line: id or id,name)"
+        }
+      }
+    },
+    "error": {
+      "invalid_extra_stops": "Some extra stop lines are invalid. Use id,name or id;name."
+    }
+  }
+}

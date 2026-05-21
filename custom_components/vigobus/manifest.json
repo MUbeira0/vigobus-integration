@@ -1,0 +1,12 @@
+{
+  "domain": "vigobus",
+  "name": "VigoBus Pro",
+  "version": "2.0.0",
+  "documentation": "https://github.com/MUbeira0/vigobus-integration",
+  "issue_tracker": "https://github.com/MUbeira0/vigobus-integration/issues",
+  "requirements": ["aiohttp>=3.8.0"],
+  "dependencies": [],
+  "codeowners": ["@MUbeira0"],
+  "config_flow": true,
+  "iot_class": "cloud_polling"
+}

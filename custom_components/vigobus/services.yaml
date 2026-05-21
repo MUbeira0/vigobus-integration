@@ -1,0 +1,8 @@
+refresh:
+  name: Refresh
+  description: Force VigoBus refresh
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry id. If omitted, refreshes all VigoBus entries.
+      example: "8db44e9f9f4ef0f4f7b5e0a4baf00001"
