@@ -1,6 +1,8 @@
 # VigoBus Pro
 
-Custom integration for Home Assistant that exposes Vigo urban bus arrival times, nearest stop support, extra stops, and line alerts.
+![VigoBus Pro](assets/logo.svg)
+
+Custom integration for Home Assistant that exposes Vigo urban bus arrival times from Vitrasa, nearest stop support, extra stops, and line alerts.
 
 ## Features
 
@@ -8,6 +10,7 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times,
 - Additional configurable stops
 - Arrival estimates with line, route, minutes, and bus distance
 - Line alerts in Spanish and Galician with fallback
+- Support for multiple route variants on the same line
 - Lovelace card support through the companion dashboard card repo
 
 ## Installation with HACS
