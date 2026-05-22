@@ -14,19 +14,28 @@
           "notify_cooldown_min": "Alert cooldown (minutes)",
           "alerts_lang": "Alerts language (es/gl)",
           "alerts_max_per_stop": "Max alerts per stop",
-          "extra_stops": "Extra stops (one per line: id or id,name)"
+          "extra_stops": "Extra stops (single line: id,name | 1234 | urzaiz)"
         }
       }
     },
     "error": {
-      "invalid_extra_stops": "Some extra stop lines are invalid. Use id,name or id;name."
+      "invalid_extra_stops": "Some extra stop values are invalid. Use id,name | 1234 | urzaiz."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "VigoBus options",
-        "description": "Update nearest behavior and extra stops.",
+        "description": "Manage general settings and extra stops.",
+        "menu_options": {
+          "edit_general": "General settings",
+          "add_stop_search": "Add stop (search)",
+          "remove_stop": "Remove stop",
+          "finish": "Save and finish"
+        }
+      },
+      "edit_general": {
+        "title": "General settings",
         "data": {
           "auto_nearest": "Auto nearest stop",
           "nearest_name": "Nearest stop custom name",
@@ -36,13 +45,33 @@
           "notify_minutes": "Alert threshold (minutes)",
           "notify_cooldown_min": "Alert cooldown (minutes)",
           "alerts_lang": "Alerts language (es/gl)",
-          "alerts_max_per_stop": "Max alerts per stop",
-          "extra_stops": "Extra stops (one per line: id or id,name)"
+          "alerts_max_per_stop": "Max alerts per stop"
+        }
+      },
+      "add_stop_search": {
+        "title": "Search stop",
+        "description": "Type a stop name or ID and choose one from the list.",
+        "data": {
+          "search_query": "Stop name or ID",
+          "custom_name": "Custom name (optional)"
+        }
+      },
+      "add_stop_select": {
+        "title": "Choose stop",
+        "data": {
+          "stop_choice": "Matching stops"
+        }
+      },
+      "remove_stop": {
+        "title": "Remove stop",
+        "data": {
+          "stop_choice": "Configured stops"
         }
       }
     },
     "error": {
-      "invalid_extra_stops": "Some extra stop lines are invalid. Use id,name or id;name."
+      "invalid_extra_stops": "Some extra stop values are invalid. Use id,name | 1234 | urzaiz.",
+      "invalid_stop_search": "No matching stops found for that search."
     }
   }
 }

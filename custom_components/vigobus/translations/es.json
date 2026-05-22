@@ -14,19 +14,28 @@
           "notify_cooldown_min": "Espera entre alertas (minutos)",
           "alerts_lang": "Idioma de avisos (es/gl)",
           "alerts_max_per_stop": "Máximo de avisos por parada",
-          "extra_stops": "Paradas extra (una por línea: id o id,nombre)"
+          "extra_stops": "Paradas extra (una línea: id,nombre | 1234 | urzaiz)"
         }
       }
     },
     "error": {
-      "invalid_extra_stops": "Hay líneas inválidas en paradas extra. Usa id,nombre o id;nombre."
+      "invalid_extra_stops": "Hay valores inválidos en paradas extra. Usa id,nombre | 1234 | urzaiz."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Opciones VigoBus",
-        "description": "Actualiza configuración de cercana y paradas extra.",
+        "description": "Gestiona la configuración general y las paradas extra.",
+        "menu_options": {
+          "edit_general": "Configuración general",
+          "add_stop_search": "Añadir parada (buscar)",
+          "remove_stop": "Eliminar parada",
+          "finish": "Guardar y terminar"
+        }
+      },
+      "edit_general": {
+        "title": "Configuración general",
         "data": {
           "auto_nearest": "Parada cercana automática",
           "nearest_name": "Nombre personalizado para la cercana",
@@ -36,13 +45,33 @@
           "notify_minutes": "Umbral de alerta (minutos)",
           "notify_cooldown_min": "Espera entre alertas (minutos)",
           "alerts_lang": "Idioma de avisos (es/gl)",
-          "alerts_max_per_stop": "Máximo de avisos por parada",
-          "extra_stops": "Paradas extra (una por línea: id o id,nombre)"
+          "alerts_max_per_stop": "Máximo de avisos por parada"
+        }
+      },
+      "add_stop_search": {
+        "title": "Buscar parada",
+        "description": "Escribe nombre o ID de parada y elige una opción de la lista.",
+        "data": {
+          "search_query": "Nombre o ID de parada",
+          "custom_name": "Nombre personalizado (opcional)"
+        }
+      },
+      "add_stop_select": {
+        "title": "Elegir parada",
+        "data": {
+          "stop_choice": "Paradas encontradas"
+        }
+      },
+      "remove_stop": {
+        "title": "Eliminar parada",
+        "data": {
+          "stop_choice": "Paradas configuradas"
         }
       }
     },
     "error": {
-      "invalid_extra_stops": "Hay líneas inválidas en paradas extra. Usa id,nombre o id;nombre."
+      "invalid_extra_stops": "Hay valores inválidos en paradas extra. Usa id,nombre | 1234 | urzaiz.",
+      "invalid_stop_search": "No se encontraron paradas para esa búsqueda."
     }
   }
 }
