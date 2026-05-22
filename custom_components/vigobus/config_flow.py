@@ -50,13 +50,21 @@ def _extract_catalog_stop(stop):
 
     properties = stop.get("properties") if isinstance(stop.get("properties"), dict) else {}
 
-    stop_id = None
+    ids_by_key = {}
     for key in ("stop_id", "idparada", "parada", "id"):
         value = stop.get(key)
         if value is None:
             value = properties.get(key)
-        if value is not None and str(value).strip():
-            stop_id = str(value).strip()
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            ids_by_key[key] = text
+
+    stop_id = None
+    for key in ("stop_id", "idparada", "parada", "id"):
+        if key in ids_by_key:
+            stop_id = ids_by_key[key]
             break
 
     if not stop_id:
@@ -74,11 +82,19 @@ def _extract_catalog_stop(stop):
     if not name:
         name = f"stop_{stop_id}"
 
+    aliases = []
+    for key in ("stop_id", "idparada", "parada", "id"):
+        value = ids_by_key.get(key)
+        if value and value not in aliases:
+            aliases.append(value)
+
     return {
         "id": stop_id,
         "name": name,
         "id_norm": _normalize_text(stop_id),
         "name_norm": _normalize_text(name),
+        "id_aliases": aliases,
+        "id_aliases_norm": [_normalize_text(item) for item in aliases],
     }
 
 
@@ -93,11 +109,14 @@ def _search_stop_by_text(query, catalog):
 
     for stop in catalog:
         id_norm = stop["id_norm"]
+        id_aliases_norm = stop.get("id_aliases_norm", [id_norm])
         name_norm = stop["name_norm"]
 
         score = None
-        if query_norm == id_norm:
+        if query_norm in id_aliases_norm:
             score = 0
+        elif any(alias.startswith(query_norm) for alias in id_aliases_norm):
+            score = 5
         elif query_norm == name_norm:
             score = 1
         elif query_norm in name_norm:
@@ -116,6 +135,15 @@ def _search_stop_by_text(query, catalog):
         return None
 
     return {"id": best["id"], "name": best["name"]}
+
+
+def _build_catalog_id_index(catalog):
+    out = {}
+    for stop in catalog:
+        for alias in stop.get("id_aliases_norm", [stop.get("id_norm")]):
+            if alias and alias not in out:
+                out[alias] = stop
+    return out
 
 
 async def _parse_extra_stops(hass, raw_value):
@@ -166,7 +194,7 @@ async def _parse_extra_stops(hass, raw_value):
         except Exception:
             catalog = []
 
-    id_to_name = {item["id_norm"]: item["name"] for item in catalog}
+    id_index = _build_catalog_id_index(catalog)
 
     for entry in raw_entries:
         if entry["kind"] in ("explicit", "id"):
@@ -177,7 +205,10 @@ async def _parse_extra_stops(hass, raw_value):
 
             name = str(entry.get("name") or "").strip()
             if entry["kind"] == "id":
-                name = id_to_name.get(_normalize_text(stop_id), name)
+                indexed = id_index.get(_normalize_text(stop_id))
+                if indexed:
+                    stop_id = indexed["id"]
+                    name = indexed["name"]
 
             if not name:
                 name = f"stop_{stop_id}"
@@ -442,8 +473,12 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             choices = {}
             for stop in catalog:
                 name_norm = stop["name_norm"]
-                id_norm = stop["id_norm"]
-                if query_norm == id_norm or query_norm in name_norm:
+                id_aliases_norm = stop.get("id_aliases_norm", [stop["id_norm"]])
+                if (
+                    query_norm in id_aliases_norm
+                    or any(alias.startswith(query_norm) for alias in id_aliases_norm)
+                    or query_norm in name_norm
+                ):
                     label = f"{stop['name']} ({stop['id']})"
                     choices[label] = {"id": stop["id"], "name": stop["name"]}
                     if len(choices) >= 15:
