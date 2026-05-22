@@ -62,7 +62,7 @@ def _extract_catalog_stop(stop):
             ids_by_key[key] = text
 
     stop_id = None
-    for key in ("stop_id", "idparada", "parada", "id"):
+    for key in ("id", "stop_id", "idparada", "parada"):
         if key in ids_by_key:
             stop_id = ids_by_key[key]
             break
@@ -83,7 +83,7 @@ def _extract_catalog_stop(stop):
         name = f"stop_{stop_id}"
 
     aliases = []
-    for key in ("stop_id", "idparada", "parada", "id"):
+    for key in ("id", "stop_id", "idparada", "parada"):
         value = ids_by_key.get(key)
         if value and value not in aliases:
             aliases.append(value)
@@ -113,8 +113,10 @@ def _search_stop_by_text(query, catalog):
         name_norm = stop["name_norm"]
 
         score = None
-        if query_norm in id_aliases_norm:
+        if query_norm == id_norm:
             score = 0
+        elif query_norm in id_aliases_norm:
+            score = 1
         elif any(alias.startswith(query_norm) for alias in id_aliases_norm):
             score = 5
         elif query_norm == name_norm:
