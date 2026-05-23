@@ -11,6 +11,7 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times 
 - Arrival estimates with line, route, minutes, and bus distance
 - Line alerts in Spanish and Galician with fallback
 - Support for multiple route variants on the same line
+- Local brand images included (`custom_components/vigobus/brand`) for Home Assistant 2026.3+
 - Lovelace card support through the companion dashboard card repo
 
 ## Installation with HACS
