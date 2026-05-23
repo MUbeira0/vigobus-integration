@@ -2,5 +2,10 @@
   "name": "VigoBus Pro",
   "content_in_root": false,
   "homeassistant": "2024.1.0",
-  "country": "ES"
+  "country": "ES",
+  "domains": [
+    "vigobus"
+  ],
+  "iot_class": "cloud_polling",
+  "render_readme": true
 }
