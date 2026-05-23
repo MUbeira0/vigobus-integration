@@ -1,7 +1,7 @@
 {
   "domain": "vigobus",
   "name": "VigoBus Pro",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "documentation": "https://github.com/MUbeira0/vigobus-integration",
   "issue_tracker": "https://github.com/MUbeira0/vigobus-integration/issues",
   "requirements": ["aiohttp>=3.8.0"],

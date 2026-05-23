@@ -1,4 +1,5 @@
 import voluptuous as vol
+import time
 import unicodedata
 
 from homeassistant import config_entries
@@ -26,6 +27,13 @@ from .const import (
     MIN_ALERTS_MAX_PER_STOP,
     MIN_SCAN_INTERVAL,
 )
+
+
+CATALOG_CACHE_TTL_SECONDS = 15 * 60
+_CATALOG_CACHE = {
+    "expires_at": 0.0,
+    "data": [],
+}
 
 
 def _serialize_extra_stops(extra_stops):
@@ -148,6 +156,28 @@ def _build_catalog_id_index(catalog):
     return out
 
 
+async def _get_catalog_stops(hass, force_refresh=False):
+    now = time.monotonic()
+    cached = _CATALOG_CACHE.get("data") or []
+    expires_at = float(_CATALOG_CACHE.get("expires_at") or 0.0)
+
+    if not force_refresh and cached and now < expires_at:
+        return cached
+
+    try:
+        api = VigoBusApi(async_get_clientsession(hass))
+        data = await api.get_paradas()
+        stops = api._extract_stops(data)
+        catalog = [item for item in (_extract_catalog_stop(stop) for stop in stops) if item]
+
+        _CATALOG_CACHE["data"] = catalog
+        _CATALOG_CACHE["expires_at"] = now + CATALOG_CACHE_TTL_SECONDS
+        return catalog
+    except Exception:
+        # Fallback to stale cache when online refresh fails.
+        return cached
+
+
 async def _parse_extra_stops(hass, raw_value):
     extra_stops = []
     errors = False
@@ -188,13 +218,7 @@ async def _parse_extra_stops(hass, raw_value):
 
     catalog = []
     if needs_catalog:
-        try:
-            api = VigoBusApi(async_get_clientsession(hass))
-            data = await api.get_paradas()
-            stops = api._extract_stops(data)
-            catalog = [item for item in (_extract_catalog_stop(stop) for stop in stops) if item]
-        except Exception:
-            catalog = []
+        catalog = await _get_catalog_stops(hass)
 
     id_index = _build_catalog_id_index(catalog)
 
@@ -371,10 +395,7 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
         if self._catalog is not None:
             return self._catalog
 
-        api = VigoBusApi(async_get_clientsession(self.hass))
-        data = await api.get_paradas()
-        stops = api._extract_stops(data)
-        self._catalog = [item for item in (_extract_catalog_stop(stop) for stop in stops) if item]
+        self._catalog = await _get_catalog_stops(self.hass)
         return self._catalog
 
     async def async_step_init(self, user_input=None):
