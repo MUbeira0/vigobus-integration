@@ -1,5 +1,6 @@
 DOMAIN = "vigobus"
 SERVICE_REFRESH = "refresh"
+SERVICE_NEAREST_STOPS = "nearest_stops"
 
 PARADAS_URL = "https://datos.vigo.org/data/transporte/paradas.json"
 
@@ -32,3 +33,14 @@ DEFAULT_ALERTS_LANG = "es"
 DEFAULT_ALERTS_MAX_PER_STOP = 10
 MIN_ALERTS_MAX_PER_STOP = 1
 MAX_ALERTS_MAX_PER_STOP = 25
+
+# Defaults for the stateless "nearest_stops" service (SERVICE_NEAREST_STOPS):
+# a one-off lookup keyed on coordinates the caller supplies (typically the
+# viewing device's own live geolocation), not stored anywhere.
+DEFAULT_DEVICE_NEAREST_TIE_MARGIN_M = 60
+MIN_DEVICE_NEAREST_TIE_MARGIN_M = 0
+MAX_DEVICE_NEAREST_TIE_MARGIN_M = 500
+
+DEFAULT_DEVICE_NEAREST_MAX_CANDIDATES = 3
+MIN_DEVICE_NEAREST_MAX_CANDIDATES = 1
+MAX_DEVICE_NEAREST_MAX_CANDIDATES = 5

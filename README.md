@@ -68,3 +68,21 @@ The integration creates sensors for each configured stop:
 ## Companion card
 
 The dashboard card is intended to be published as a separate HACS Dashboard repository.
+
+## `vigobus.nearest_stops` service
+
+Stateless lookup used by the companion card's "my location" mode: given a
+latitude/longitude it returns the closest stop(s) with their upcoming buses.
+It does not read or store any device tracker — callers (typically a
+dashboard card reading the viewing device's own live geolocation) pass
+coordinates on every call, so the result reflects whoever is looking at the
+dashboard at that moment rather than a fixed home or tracker location. When
+more than one stop is within `tie_margin_m` (default 60m) of the closest
+one, several candidates are returned instead of just one.
+
+```yaml
+service: vigobus.nearest_stops
+data:
+  latitude: 42.2328
+  longitude: -8.7226
+```

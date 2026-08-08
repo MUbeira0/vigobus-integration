@@ -6,3 +6,50 @@ refresh:
       name: Entry ID
       description: Optional config entry id. If omitted, refreshes all VigoBus entries.
       example: "8db44e9f9f4ef0f4f7b5e0a4baf00001"
+
+nearest_stops:
+  name: Nearest stops
+  description: >
+    Stateless lookup: returns the closest stop(s) to the given coordinates,
+    each with its upcoming buses. Intended for dashboard cards that read the
+    viewing device's own live geolocation and pass it in on every call, so
+    the result reflects whoever is looking at the dashboard right now
+    instead of a fixed home or tracker location. Returns several candidates
+    when more than one stop is within tie_margin_m of the closest one.
+  fields:
+    latitude:
+      name: Latitude
+      description: Latitude of the viewing device.
+      required: true
+      example: 42.2328
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: any
+    longitude:
+      name: Longitude
+      description: Longitude of the viewing device.
+      required: true
+      example: -8.7226
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: any
+    tie_margin_m:
+      name: Tie margin (meters)
+      description: Also return stops within this many meters of the closest one.
+      example: 60
+      selector:
+        number:
+          min: 0
+          max: 500
+    max_candidates:
+      name: Max candidates
+      description: Maximum number of candidate stops to return.
+      example: 3
+      selector:
+        number:
+          min: 1
+          max: 5

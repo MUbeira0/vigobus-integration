@@ -275,3 +275,99 @@ class VigoBusApi:
             else:
                 logger.warning("VigoBus: No se encontró nearest para las coordenadas dadas")
         return nearest
+
+    async def get_nearest_stops(self, lat, lon, margin_m=60, max_candidates=3, logger=None):
+        """Return the closest stop plus any other stop within margin_m of it.
+
+        Used for the device-location based nearest feature, where the closest
+        stop alone can be ambiguous (e.g. two stops on opposite sidewalks).
+        """
+        data = await self.get_paradas()
+        stops = self._extract_stops(data)
+
+        scored = []
+        for stop in stops:
+            normalized = self._normalize_stop(stop)
+            if not normalized:
+                continue
+            dist = self.haversine(lat, lon, normalized["latitud"], normalized["longitud"])
+            normalized["_distance_m"] = dist
+            scored.append(normalized)
+
+        scored.sort(key=lambda item: item["_distance_m"])
+
+        if not scored:
+            if logger:
+                logger.warning("VigoBus: No se encontraron paradas para calcular nearest del dispositivo")
+            return []
+
+        nearest_distance = scored[0]["_distance_m"]
+        candidates = [
+            item for item in scored
+            if item["_distance_m"] <= nearest_distance + max(0, margin_m)
+        ][: max(1, int(max_candidates))]
+
+        if logger:
+            logger.info(
+                "VigoBus: %s paradas candidatas para el dispositivo (mas cercana a %.1f m)",
+                len(candidates),
+                nearest_distance,
+            )
+
+        return candidates
+
+    async def get_nearest_stops_with_eta(self, lat, lon, margin_m=60, max_candidates=3, logger=None):
+        """Nearest candidate stops plus their upcoming buses, for a one-off lookup.
+
+        Used by the stateless "nearest_stops" service: the caller (typically a
+        dashboard card) supplies coordinates read live from the viewing
+        device's own geolocation, so this is not tied to any stored location.
+        """
+        candidates = await self.get_nearest_stops(
+            lat, lon, margin_m=margin_m, max_candidates=max_candidates, logger=logger
+        )
+
+        results = []
+        for stop in candidates:
+            stop_id = stop.get("stop_id") or stop.get("id")
+            if not stop_id:
+                continue
+
+            try:
+                estimacion = await self.get_estimacion(stop_id)
+            except Exception as err:
+                if logger:
+                    logger.warning("VigoBus: fallo al pedir estimacion de %s: %s", stop_id, err)
+                estimacion = {}
+
+            estimaciones = (estimacion or {}).get("estimaciones", [])
+            buses = []
+            if isinstance(estimaciones, list):
+                for item in estimaciones:
+                    if not isinstance(item, dict):
+                        continue
+                    try:
+                        minutos = int(item.get("minutos"))
+                    except (TypeError, ValueError):
+                        continue
+                    buses.append(
+                        {
+                            "linea": item.get("linea"),
+                            "ruta": item.get("ruta"),
+                            "metros": item.get("metros"),
+                            "minutos": minutos,
+                        }
+                    )
+            buses.sort(key=lambda item: item["minutos"])
+
+            results.append(
+                {
+                    "id": stop_id,
+                    "name": stop.get("nombre") or stop.get("name") or stop_id,
+                    "distance_m": round(stop.get("_distance_m", 0), 1),
+                    "buses": buses,
+                    "next_minutes": buses[0]["minutos"] if buses else None,
+                }
+            )
+
+        return results
