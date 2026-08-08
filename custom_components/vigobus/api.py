@@ -329,7 +329,9 @@ class VigoBusApi:
 
         results = []
         for stop in candidates:
-            stop_id = stop.get("stop_id") or stop.get("id")
+            # The estimacion endpoint expects the "id" (stop_vitrasa) value,
+            # not the municipal "stop_id" — matches coordinator._extract_stop_id.
+            stop_id = stop.get("id") or stop.get("stop_id")
             if not stop_id:
                 continue
 
