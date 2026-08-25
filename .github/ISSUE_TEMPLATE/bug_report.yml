@@ -1,0 +1,111 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thank you for reporting a bug!
+
+        Before submitting this report, please make sure that:
+        - The issue has not already been reported.
+        - You are using a supported version.
+        - You have provided enough information to reproduce the problem.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of the project are you using?
+      placeholder: "e.g. 5.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide information about your environment.
+      placeholder: "e.g. Windows 11, .NET 10, x64"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clearly describe what went wrong.
+      placeholder: Describe the problem...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide the steps required to reproduce the issue.
+      placeholder: |
+        1. Start the application
+        2. Open...
+        3. Click...
+        4. The error occurs
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe what should have happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and Error Messages
+      description: |
+        Include any relevant logs, stack traces, or error messages.
+
+        Do not include passwords, API keys, access tokens, or other sensitive information.
+      render: shell
+      placeholder: Paste logs or error messages here...
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or Additional Evidence
+      description: |
+        If applicable, attach screenshots, videos, or other files that may help explain the problem.
+      placeholder: Drag and drop files here...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: Add any other information that may help us investigate the issue.
+      placeholder: Anything else we should know?
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched the existing issues and this bug has not already been reported.
+          required: true
+        - label: I am using a supported version.
+          required: true
+        - label: I have removed sensitive information from this report.
+          required: true
