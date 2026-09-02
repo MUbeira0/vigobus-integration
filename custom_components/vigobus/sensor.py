@@ -73,8 +73,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
         unique_ids.add(entity.unique_id)
         entities.append(entity)
 
+    def _label_for(key):
+        if key == "nearest":
+            return nearest_label
+        data = (coordinator.data or {}).get(key, {}) or {}
+        display = str(data.get("display_name") or "").strip()
+        return display or key
+
     for key in sorted(keys):
-        label = nearest_label if key == "nearest" else key
+        label = _label_for(key)
         add_entity(VigoBusSensor(coordinator, key, entry_id=entry_id, display_name=label))
         add_entity(VigoBusLineSensor(coordinator, key, entry_id=entry_id, display_name=label))
         add_entity(VigoBusRouteSensor(coordinator, key, entry_id=entry_id, display_name=label))

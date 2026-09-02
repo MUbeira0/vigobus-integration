@@ -6,6 +6,7 @@ from aiohttp import ClientError
 from homeassistant.components import persistent_notification
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
@@ -14,6 +15,7 @@ from .api import VigoBusApi
 from .const import (
     DEFAULT_ALERTS_LANG,
     DEFAULT_ALERTS_MAX_PER_STOP,
+    DEFAULT_AUTO_NEAREST_DEVICES,
     DEFAULT_NOTIFY_COOLDOWN_MIN,
     DEFAULT_NOTIFY_ENABLED,
     DEFAULT_NOTIFY_MINUTES,
@@ -35,13 +37,16 @@ class VigoBusCoordinator(DataUpdateCoordinator):
 
         self.api = VigoBusApi(self.session)
 
+        # closest_stop keeps the home result for backward compatibility
+        # (sensor debug info still reads it). Per-target caches below hold the
+        # home entry plus one entry per tracked device/person.
         self.closest_stop = None
+        self._closest_stops = {}
+        self._nearest_anchor = {}
         self._last_success_at = None
         self._last_error_at = None
         self._consecutive_failures = 0
         self._last_notification_at = {}
-        self._nearest_home_lat = None
-        self._nearest_home_lon = None
         self._nearest_recalc_distance_m = int(
             entry.options.get(
                 "nearest_recalc_distance_m",
@@ -67,15 +72,111 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             return self.entry.options.get(key)
         return self.entry.data.get(key, default)
 
-    def _should_refresh_nearest(self, lat, lon):
-        if self.closest_stop is None:
+    def _should_refresh_nearest(self, key, lat, lon):
+        if self._closest_stops.get(key) is None:
             return True
 
-        if self._nearest_home_lat is None or self._nearest_home_lon is None:
+        anchor = self._nearest_anchor.get(key)
+        if not anchor or anchor[0] is None or anchor[1] is None:
             return True
 
-        moved_m = self.api.haversine(self._nearest_home_lat, self._nearest_home_lon, lat, lon)
+        moved_m = self.api.haversine(anchor[0], anchor[1], lat, lon)
         return moved_m >= self._nearest_recalc_distance_m
+
+    def _home_coords(self):
+        home = self.hass.states.get("zone.home")
+        if home:
+            lat = home.attributes.get("latitude")
+            lon = home.attributes.get("longitude")
+            if lat is not None and lon is not None:
+                return lat, lon
+        else:
+            _LOGGER.warning("zone.home is not available yet, using HA config coordinates")
+
+        return self.hass.config.latitude, self.hass.config.longitude
+
+    def _discover_device_entities(self):
+        """Return person/GPS device_tracker entity ids for auto creation."""
+        ids = []
+        for state in self.hass.states.async_all("person"):
+            ids.append(state.entity_id)
+        for state in self.hass.states.async_all("device_tracker"):
+            if str(state.attributes.get("source_type") or "").lower() == "gps":
+                ids.append(state.entity_id)
+        return ids
+
+    def _nearest_targets(self):
+        """Build the list of nearest-stop targets to compute this cycle.
+
+        Each target is (key, display_name, lat, lon). The home target keeps the
+        legacy key ``"nearest"`` so it is never removed; device/person targets
+        use ``nearest_<slug>`` keys and are purely additive.
+        """
+        targets = []
+
+        # Home target (classic behaviour) — independent, never dropped.
+        if self._entry_value("auto_nearest", True):
+            lat, lon = self._home_coords()
+            if lat is not None and lon is not None:
+                name = str(self._entry_value("nearest_name", "") or "").strip()
+                targets.append(("nearest", name, lat, lon))
+
+        # Device/person targets: explicit selection + optional auto discovery.
+        entity_ids = list(self._entry_value("nearest_devices", []) or [])
+        if bool(self._entry_value("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)):
+            entity_ids.extend(self._discover_device_entities())
+
+        seen = set()
+        for entity_id in entity_ids:
+            entity_id = str(entity_id or "").strip()
+            if not entity_id or entity_id in seen:
+                continue
+            seen.add(entity_id)
+
+            state = self.hass.states.get(entity_id)
+            if not state or state.state in ("unknown", "unavailable", "", None):
+                continue
+
+            lat = state.attributes.get("latitude")
+            lon = state.attributes.get("longitude")
+            if lat is None or lon is None:
+                continue
+
+            key = f"nearest_{slugify(entity_id)}"
+            name = str(state.attributes.get("friendly_name") or entity_id).strip()
+            targets.append((key, name, lat, lon))
+
+        return targets
+
+    async def _resolve_nearest_target(self, key, name, lat, lon, updated_at, alerts_index):
+        """Resolve a single nearest target into a results entry (or None)."""
+        if self._should_refresh_nearest(key, lat, lon):
+            stop = await self.api.get_nearest_stop(lat, lon, logger=_LOGGER)
+            if stop:
+                self._closest_stops[key] = stop
+                self._nearest_anchor[key] = (lat, lon)
+                if key == "nearest":
+                    self.closest_stop = stop
+
+        stop = self._closest_stops.get(key)
+        if not stop:
+            _LOGGER.warning("No nearest stop could be resolved for %s", key)
+            return None
+
+        stop_id = self._extract_stop_id(stop)
+        if stop_id is None:
+            _LOGGER.warning("Nearest stop found for %s but no stop ID key was detected", key)
+            return None
+
+        entry = {
+            "stop": stop,
+            "stop_name": name,
+            "display_name": name,
+            "updated_at": updated_at,
+            "data": await self.api.get_estimacion(stop_id),
+        }
+        self._attach_alerts(entry, alerts_index)
+        return entry
 
     def _minutes_from_result(self, result):
         estimaciones = (result or {}).get("data", {}).get("estimaciones", [])
@@ -215,23 +316,6 @@ class VigoBusCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         try:
-            home = self.hass.states.get("zone.home")
-            lat = None
-            lon = None
-            if home:
-                lat = home.attributes.get("latitude")
-                lon = home.attributes.get("longitude")
-            else:
-                _LOGGER.warning("zone.home is not available yet, using HA config coordinates")
-
-            if lat is None or lon is None:
-                lat = self.hass.config.latitude
-                lon = self.hass.config.longitude
-
-            if lat is None or lon is None:
-                _LOGGER.warning("No coordinates available from zone.home or hass.config")
-                return self.data or {}
-
             results = {}
             updated_at = dt_util.utcnow().isoformat()
             alerts_index = {}
@@ -247,28 +331,12 @@ class VigoBusCoordinator(DataUpdateCoordinator):
                     except Exception:
                         alerts_index = {}
 
-            if self._entry_value("auto_nearest", True):
-                if self._should_refresh_nearest(lat, lon):
-                    self.closest_stop = await self.api.get_nearest_stop(lat, lon, logger=_LOGGER)
-                    if self.closest_stop:
-                        self._nearest_home_lat = lat
-                        self._nearest_home_lon = lon
-
-                if self.closest_stop:
-                    stop_id = self._extract_stop_id(self.closest_stop)
-                    if stop_id is not None:
-                        nearest_name = str(self._entry_value("nearest_name", "") or "").strip()
-                        results["nearest"] = {
-                            "stop": self.closest_stop,
-                            "stop_name": nearest_name,
-                            "updated_at": updated_at,
-                            "data": await self.api.get_estimacion(stop_id),
-                        }
-                        self._attach_alerts(results["nearest"], alerts_index)
-                    else:
-                        _LOGGER.warning("Nearest stop found but no stop ID key was detected")
-                else:
-                    _LOGGER.warning("No nearest stop could be resolved from paradas payload")
+            for key, name, lat, lon in self._nearest_targets():
+                entry = await self._resolve_nearest_target(
+                    key, name, lat, lon, updated_at, alerts_index
+                )
+                if entry is not None:
+                    results[key] = entry
 
             for stop in self._entry_value("extra_stops", []):
                 stop_id = stop.get("id")
@@ -294,7 +362,9 @@ class VigoBusCoordinator(DataUpdateCoordinator):
 
             self._last_success_at = updated_at
             self._consecutive_failures = 0
-            await self._maybe_send_notification("nearest", results.get("nearest"))
+            for key, value in results.items():
+                if key == "nearest" or key.startswith("nearest_"):
+                    await self._maybe_send_notification(key, value)
 
             return results
         except (TimeoutError, ClientError) as err:

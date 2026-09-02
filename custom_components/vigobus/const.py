@@ -16,6 +16,11 @@ DEFAULT_SCAN_INTERVAL = 30
 MIN_SCAN_INTERVAL = 15
 MAX_SCAN_INTERVAL = 300
 
+# Automatic per-device nearest sensors.
+# When True, the integration discovers person/GPS device_tracker entities and
+# creates a nearest-stop sensor set for each one, without listing them by hand.
+DEFAULT_AUTO_NEAREST_DEVICES = False
+
 DEFAULT_NEAREST_RECALC_DISTANCE_M = 120
 MIN_NEAREST_RECALC_DISTANCE_M = 20
 MAX_NEAREST_RECALC_DISTANCE_M = 1000

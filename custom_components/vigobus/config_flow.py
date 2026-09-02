@@ -4,12 +4,14 @@ import unicodedata
 
 from homeassistant import config_entries
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import selector
 
 from .api import VigoBusApi
 
 from .const import (
     DEFAULT_ALERTS_LANG,
     DEFAULT_ALERTS_MAX_PER_STOP,
+    DEFAULT_AUTO_NEAREST_DEVICES,
     DEFAULT_NOTIFY_COOLDOWN_MIN,
     DEFAULT_NOTIFY_ENABLED,
     DEFAULT_NOTIFY_MINUTES,
@@ -281,6 +283,10 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             True,
                         ),
                         "nearest_name": user_input.get("nearest_name", "").strip(),
+                        "nearest_devices": list(user_input.get("nearest_devices", []) or []),
+                        "auto_nearest_devices": bool(
+                            user_input.get("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
+                        ),
                         "extra_stops": extra_stops,
                         "scan_interval": int(user_input.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
                         "nearest_recalc_distance_m": int(
@@ -305,6 +311,13 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Optional("auto_nearest", default=True): bool,
                 vol.Optional("nearest_name", default=""): str,
+                vol.Optional("nearest_devices", default=[]): selector(
+                    {"entity": {"multiple": True, "domain": ["device_tracker", "person"]}}
+                ),
+                vol.Optional(
+                    "auto_nearest_devices",
+                    default=DEFAULT_AUTO_NEAREST_DEVICES,
+                ): bool,
                 vol.Optional(
                     "scan_interval",
                     default=DEFAULT_SCAN_INTERVAL,
@@ -375,6 +388,10 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
         self._draft = {
             "auto_nearest": bool(self._entry_value("auto_nearest", True)),
             "nearest_name": str(self._entry_value("nearest_name", "") or "").strip(),
+            "nearest_devices": list(self._entry_value("nearest_devices", []) or []),
+            "auto_nearest_devices": bool(
+                self._entry_value("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
+            ),
             "extra_stops": list(self._entry_value("extra_stops", []) or []),
             "scan_interval": int(self._entry_value("scan_interval", DEFAULT_SCAN_INTERVAL)),
             "nearest_recalc_distance_m": int(
@@ -413,6 +430,10 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                 {
                     "auto_nearest": bool(user_input.get("auto_nearest", True)),
                     "nearest_name": str(user_input.get("nearest_name", "")).strip(),
+                    "nearest_devices": list(user_input.get("nearest_devices", []) or []),
+                    "auto_nearest_devices": bool(
+                        user_input.get("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
+                    ),
                     "scan_interval": int(user_input.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
                     "nearest_recalc_distance_m": int(
                         user_input.get(
@@ -437,6 +458,14 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             {
                 vol.Optional("auto_nearest", default=self._draft["auto_nearest"]): bool,
                 vol.Optional("nearest_name", default=self._draft["nearest_name"]): str,
+                vol.Optional(
+                    "nearest_devices", default=self._draft["nearest_devices"]
+                ): selector(
+                    {"entity": {"multiple": True, "domain": ["device_tracker", "person"]}}
+                ),
+                vol.Optional(
+                    "auto_nearest_devices", default=self._draft["auto_nearest_devices"]
+                ): bool,
                 vol.Optional("scan_interval", default=self._draft["scan_interval"]): vol.All(
                     vol.Coerce(int),
                     vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),

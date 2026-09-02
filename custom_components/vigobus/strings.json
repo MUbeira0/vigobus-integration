@@ -7,6 +7,8 @@
         "data": {
           "auto_nearest": "Auto nearest stop",
           "nearest_name": "Nearest stop custom name",
+          "nearest_devices": "Nearest stop for these devices (person / GPS tracker)",
+          "auto_nearest_devices": "Auto-create a nearest stop for every device (person / GPS tracker)",
           "scan_interval": "Update interval (seconds)",
           "nearest_recalc_distance_m": "Nearest recalc distance (meters)",
           "notify_enabled": "Enable automatic alerts",
@@ -39,6 +41,8 @@
         "data": {
           "auto_nearest": "Auto nearest stop",
           "nearest_name": "Nearest stop custom name",
+          "nearest_devices": "Nearest stop for these devices (person / GPS tracker)",
+          "auto_nearest_devices": "Auto-create a nearest stop for every device (person / GPS tracker)",
           "scan_interval": "Update interval (seconds)",
           "nearest_recalc_distance_m": "Nearest recalc distance (meters)",
           "notify_enabled": "Enable automatic alerts",

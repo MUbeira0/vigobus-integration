@@ -7,6 +7,8 @@
         "data": {
           "auto_nearest": "Parada cercana automática",
           "nearest_name": "Nombre personalizado para la cercana",
+          "nearest_devices": "Parada más cercana para estos dispositivos (persona / GPS)",
+          "auto_nearest_devices": "Crear automáticamente una parada cercana por cada dispositivo (persona / GPS)",
           "scan_interval": "Intervalo de actualización (segundos)",
           "nearest_recalc_distance_m": "Distancia para recalcular cercana (metros)",
           "notify_enabled": "Activar alertas automáticas",
@@ -39,6 +41,8 @@
         "data": {
           "auto_nearest": "Parada cercana automática",
           "nearest_name": "Nombre personalizado para la cercana",
+          "nearest_devices": "Parada más cercana para estos dispositivos (persona / GPS)",
+          "auto_nearest_devices": "Crear automáticamente una parada cercana por cada dispositivo (persona / GPS)",
           "scan_interval": "Intervalo de actualización (segundos)",
           "nearest_recalc_distance_m": "Distancia para recalcular cercana (metros)",
           "notify_enabled": "Activar alertas automáticas",

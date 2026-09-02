@@ -6,6 +6,11 @@ import unittest
 from unittest.mock import patch
 
 
+def _register(name, module):
+    sys.modules[name] = module
+    return module
+
+
 def _install_stubs():
     if "voluptuous" not in sys.modules:
         vol = types.ModuleType("voluptuous")
@@ -18,35 +23,117 @@ def _install_stubs():
         vol.Schema = lambda *args, **kwargs: None
         sys.modules["voluptuous"] = vol
 
+    if "aiohttp" not in sys.modules:
+        aiohttp = types.ModuleType("aiohttp")
+
+        class ClientSession:
+            pass
+
+        class ClientError(Exception):
+            pass
+
+        aiohttp.ClientSession = ClientSession
+        aiohttp.ClientError = ClientError
+        _register("aiohttp", aiohttp)
+
     if "homeassistant" not in sys.modules:
-        ha = types.ModuleType("homeassistant")
+        ha = _register("homeassistant", types.ModuleType("homeassistant"))
+
+        # homeassistant.config_entries
         config_entries = types.ModuleType("homeassistant.config_entries")
 
         class ConfigFlow:
-            pass
+            def __init_subclass__(cls, **kwargs):
+                # HA passes domain=... when subclassing ConfigFlow.
+                return None
 
         class OptionsFlow:
             def __init__(self, *args, **kwargs):
                 self.hass = None
 
+        class ConfigEntry:
+            pass
+
         config_entries.ConfigFlow = ConfigFlow
         config_entries.OptionsFlow = OptionsFlow
+        config_entries.ConfigEntry = ConfigEntry
+        ha.config_entries = _register("homeassistant.config_entries", config_entries)
 
-        helpers = types.ModuleType("homeassistant.helpers")
-        aiohttp_client = types.ModuleType("homeassistant.helpers.aiohttp_client")
+        # homeassistant.core
+        core = types.ModuleType("homeassistant.core")
 
-        def async_get_clientsession(_hass):
-            return object()
+        class HomeAssistant:
+            pass
 
-        aiohttp_client.async_get_clientsession = async_get_clientsession
+        class SupportsResponse:
+            ONLY = "only"
 
-        ha.config_entries = config_entries
+        core.HomeAssistant = HomeAssistant
+        core.SupportsResponse = SupportsResponse
+        ha.core = _register("homeassistant.core", core)
+
+        # homeassistant.helpers (+ submodules)
+        helpers = _register("homeassistant.helpers", types.ModuleType("homeassistant.helpers"))
         ha.helpers = helpers
 
-        sys.modules["homeassistant"] = ha
-        sys.modules["homeassistant.config_entries"] = config_entries
-        sys.modules["homeassistant.helpers"] = helpers
-        sys.modules["homeassistant.helpers.aiohttp_client"] = aiohttp_client
+        aiohttp_client = types.ModuleType("homeassistant.helpers.aiohttp_client")
+        aiohttp_client.async_get_clientsession = lambda _hass: object()
+        helpers.aiohttp_client = _register(
+            "homeassistant.helpers.aiohttp_client", aiohttp_client
+        )
+
+        selector_mod = types.ModuleType("homeassistant.helpers.selector")
+        selector_mod.selector = lambda config: config
+        helpers.selector = _register("homeassistant.helpers.selector", selector_mod)
+
+        update_coordinator = types.ModuleType("homeassistant.helpers.update_coordinator")
+
+        class DataUpdateCoordinator:
+            def __init__(self, *args, **kwargs):
+                pass
+
+        update_coordinator.DataUpdateCoordinator = DataUpdateCoordinator
+        helpers.update_coordinator = _register(
+            "homeassistant.helpers.update_coordinator", update_coordinator
+        )
+
+        # homeassistant.components.persistent_notification
+        components = _register(
+            "homeassistant.components", types.ModuleType("homeassistant.components")
+        )
+        ha.components = components
+        persistent_notification = types.ModuleType(
+            "homeassistant.components.persistent_notification"
+        )
+        persistent_notification.async_create = lambda *args, **kwargs: None
+        components.persistent_notification = _register(
+            "homeassistant.components.persistent_notification", persistent_notification
+        )
+
+        # homeassistant.util (+ util.dt) and slugify
+        util = _register("homeassistant.util", types.ModuleType("homeassistant.util"))
+        ha.util = util
+
+        def _slugify(value, *_a, **_k):
+            text = str(value or "").strip().lower()
+            out = []
+            prev_us = False
+            for ch in text:
+                if ch.isalnum():
+                    out.append(ch)
+                    prev_us = False
+                elif not prev_us:
+                    out.append("_")
+                    prev_us = True
+            return "".join(out).strip("_")
+
+        util.slugify = _slugify
+
+        dt_mod = types.ModuleType("homeassistant.util.dt")
+        import datetime as _datetime
+
+        dt_mod.utcnow = lambda: _datetime.datetime.now(_datetime.timezone.utc)
+        util.dt = _register("homeassistant.util.dt", dt_mod)
 
 
 _install_stubs()
@@ -154,6 +241,137 @@ class ConfigFlowStopSearchTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(FakeApi.calls, 1)
         self.assertEqual(first, second)
+
+
+coordinator_mod = importlib.import_module("custom_components.vigobus.coordinator")
+
+
+class _FakeState:
+    def __init__(self, entity_id, state, attributes):
+        self.entity_id = entity_id
+        self.state = state
+        self.attributes = attributes
+
+
+class _FakeStates:
+    def __init__(self, states):
+        self._by_id = {s.entity_id: s for s in states}
+
+    def get(self, entity_id):
+        return self._by_id.get(entity_id)
+
+    def async_all(self, domain):
+        prefix = f"{domain}."
+        return [s for eid, s in self._by_id.items() if eid.startswith(prefix)]
+
+
+class _FakeConfig:
+    latitude = 42.2406
+    longitude = -8.7207
+
+
+class _FakeHass:
+    def __init__(self, states):
+        self.states = _FakeStates(states)
+        self.config = _FakeConfig()
+
+
+class _FakeEntry:
+    def __init__(self, data=None, options=None):
+        self.data = data or {}
+        self.options = options or {}
+        self.entry_id = "test_entry"
+
+
+class NearestTargetsTests(unittest.TestCase):
+    def _make(self, states, data=None, options=None):
+        hass = _FakeHass(states)
+        entry = _FakeEntry(data=data, options=options)
+        return coordinator_mod.VigoBusCoordinator(hass, entry)
+
+    def test_home_target_always_present(self):
+        states = [_FakeState("zone.home", "zoning", {"latitude": 42.1, "longitude": -8.6})]
+        coord = self._make(states, data={"auto_nearest": True})
+        keys = [target[0] for target in coord._nearest_targets()]
+        self.assertIn("nearest", keys)
+
+    def test_explicit_device_is_added_without_removing_home(self):
+        states = [
+            _FakeState("zone.home", "zoning", {"latitude": 42.1, "longitude": -8.6}),
+            _FakeState(
+                "person.miguel",
+                "home",
+                {"latitude": 42.2, "longitude": -8.7, "friendly_name": "Miguel"},
+            ),
+        ]
+        coord = self._make(
+            states,
+            data={"auto_nearest": True, "nearest_devices": ["person.miguel"]},
+        )
+        targets = {target[0]: target for target in coord._nearest_targets()}
+        self.assertIn("nearest", targets)
+        self.assertIn("nearest_person_miguel", targets)
+        self.assertEqual(targets["nearest_person_miguel"][1], "Miguel")
+
+    def test_auto_discovers_person_and_gps_tracker_only(self):
+        states = [
+            _FakeState(
+                "person.ana",
+                "home",
+                {"latitude": 42.3, "longitude": -8.8, "friendly_name": "Ana"},
+            ),
+            _FakeState(
+                "device_tracker.movil",
+                "home",
+                {"latitude": 42.4, "longitude": -8.9, "source_type": "gps"},
+            ),
+            _FakeState(
+                "device_tracker.router",
+                "home",
+                {"latitude": 42.5, "longitude": -8.1, "source_type": "router"},
+            ),
+        ]
+        coord = self._make(
+            states,
+            data={"auto_nearest": False, "auto_nearest_devices": True},
+        )
+        keys = {target[0] for target in coord._nearest_targets()}
+        self.assertIn("nearest_person_ana", keys)
+        self.assertIn("nearest_device_tracker_movil", keys)
+        self.assertNotIn("nearest_device_tracker_router", keys)
+
+    def test_device_without_coordinates_is_skipped(self):
+        states = [_FakeState("person.sincoord", "home", {"friendly_name": "Sin"})]
+        coord = self._make(
+            states,
+            data={"auto_nearest": False, "nearest_devices": ["person.sincoord"]},
+        )
+        self.assertEqual(coord._nearest_targets(), [])
+
+    def test_unavailable_device_is_skipped(self):
+        states = [
+            _FakeState(
+                "person.fuera",
+                "unavailable",
+                {"latitude": 42.2, "longitude": -8.7},
+            )
+        ]
+        coord = self._make(
+            states,
+            data={"auto_nearest": False, "nearest_devices": ["person.fuera"]},
+        )
+        self.assertEqual(coord._nearest_targets(), [])
+
+    def test_should_refresh_nearest_is_per_key(self):
+        states = [_FakeState("zone.home", "zoning", {"latitude": 42.1, "longitude": -8.6})]
+        coord = self._make(states, data={"auto_nearest": True})
+        # No cache yet -> must refresh.
+        self.assertTrue(coord._should_refresh_nearest("nearest", 42.1, -8.6))
+        coord._closest_stops["nearest"] = {"id": "1"}
+        coord._nearest_anchor["nearest"] = (42.1, -8.6)
+        # Same spot for this key -> no refresh; a different key -> still refresh.
+        self.assertFalse(coord._should_refresh_nearest("nearest", 42.1, -8.6))
+        self.assertTrue(coord._should_refresh_nearest("nearest_person_x", 42.1, -8.6))
 
 
 if __name__ == "__main__":
