@@ -12,6 +12,7 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times 
 
 - Nearest stop sensor based on your home location
 - Per-device nearest stop sensors: pick `person`/`device_tracker` entities in the config menu, or auto-create one for every GPS device (home stop is kept, never removed). Each of these sensors exposes an `is_device_nearest` attribute so dashboards (like the companion card) can reliably tell them apart from the home stop or a manually configured extra stop
+- Every stop (home, extra, or per-device) is grouped as its own Home Assistant device, bundling its 4 sensors (state, line, route, upcoming) together in Settings → Devices & Services instead of a flat sensor list. Existing installs pick this up automatically on the next restart — no reconfiguration needed
 - Additional configurable stops
 - Arrival estimates with line, route, minutes, and bus distance
 - Optional line filter per stop (nearest or extra) so a sensor only reports arrivals for one bus line

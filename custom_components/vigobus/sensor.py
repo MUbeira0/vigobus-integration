@@ -1,4 +1,5 @@
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -130,6 +131,16 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"vigobus_{self._entry_id}_{key_id}"
         self._attr_icon = "mdi:bus-clock"
         self._attr_native_unit_of_measurement = "min"
+
+        is_device_nearest = stop_key != "nearest" and str(stop_key).startswith("nearest_")
+        model = "Parada por dispositivo" if is_device_nearest else "Parada"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{self._entry_id}_{key_id}")},
+            name=self._attr_name,
+            manufacturer="VigoBus",
+            model=model,
+            entry_type=DeviceEntryType.SERVICE,
+        )
 
     def _entry_data(self):
         return self.coordinator.data.get(self.stop_key, {}) if self.coordinator.data else {}
