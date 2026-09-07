@@ -229,12 +229,14 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
                 if line_filter and _normalize_line(bus.get("linea")) != line_filter:
                     continue
 
+                line_colors = getattr(self.coordinator, "_line_colors", {}) or {}
                 valid.append(
                     {
                         "linea": bus.get("linea"),
                         "ruta": bus.get("ruta"),
                         "metros": bus.get("metros"),
                         "minutos": minutos,
+                        "color": line_colors.get(_normalize_line(bus.get("linea"))),
                     }
                 )
 

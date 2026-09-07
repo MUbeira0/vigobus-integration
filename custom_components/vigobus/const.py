@@ -10,6 +10,7 @@ ESTIMACION_URL = (
 )
 AVISOS_URL = "https://datos.vigo.org/vci_api_app/api2.jsp?tipo={}"
 AVISOS_LINEAS_URL = "https://datos.vigo.org/vci_api_app/api2.jsp?tipo=WEBPUB_AVISOS_TRANSPORTE&lang={}"
+LINE_COLORS_URL = "https://datos.vigo.org/data/transporte/lineas.geojson"
 
 SCAN_INTERVAL = 30
 DEFAULT_SCAN_INTERVAL = 30

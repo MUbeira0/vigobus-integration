@@ -16,6 +16,7 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times 
 - Additional configurable stops
 - Arrival estimates with line, route, minutes, and bus distance
 - Optional line filter per stop (nearest or extra) so a sensor only reports arrivals for one bus line
+- Each upcoming bus is tagged with Vitrasa's own official line color (from their public line-geometry data), exposed as a `color` field per bus so dashboards can match the real livery instead of guessing
 - Line alerts in Spanish and Galician with fallback
 - Support for multiple route variants on the same line
 - Local brand images included (`custom_components/vigobus/brand`) for Home Assistant 2026.3+

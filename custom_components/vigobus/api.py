@@ -1,8 +1,19 @@
 import math
+import time
 
 from aiohttp import ClientSession
 
-from .const import AVISOS_LINEAS_URL, AVISOS_URL, ESTIMACION_URL, PARADAS_URL
+from .const import AVISOS_LINEAS_URL, AVISOS_URL, ESTIMACION_URL, LINE_COLORS_URL, PARADAS_URL
+
+# Vigo's own open-data line-geometry file carries an official color per line
+# (used on their own maps), so we mirror it instead of inventing one. Colors
+# are effectively static (a rebrand is a rare, deliberate event), so this is
+# cached for a full day rather than refreshed every scan cycle.
+LINE_COLOR_CACHE_TTL_SECONDS = 24 * 60 * 60
+_LINE_COLOR_CACHE = {
+    "expires_at": 0.0,
+    "data": {},
+}
 
 
 class VigoBusApi:
@@ -12,6 +23,42 @@ class VigoBusApi:
     async def get_paradas(self):
         async with self.session.get(PARADAS_URL, timeout=15) as resp:
             return await resp.json()
+
+    async def get_line_colors(self, logger=None):
+        now = time.monotonic()
+        cached = _LINE_COLOR_CACHE.get("data") or {}
+        expires_at = float(_LINE_COLOR_CACHE.get("expires_at") or 0.0)
+        if cached and now < expires_at:
+            return cached
+
+        try:
+            async with self.session.get(LINE_COLORS_URL, timeout=20) as resp:
+                # Vigo serves this as application/octet-stream instead of
+                # application/geo+json, so aiohttp's strict mimetype check
+                # has to be bypassed.
+                data = await resp.json(content_type=None)
+        except Exception as err:
+            if logger:
+                logger.warning("VigoBus: unable to fetch line colors: %s", err)
+            return cached
+
+        mapping = {}
+        features = data.get("features") if isinstance(data, dict) else None
+        for feature in features or []:
+            properties = feature.get("properties") if isinstance(feature, dict) else None
+            if not isinstance(properties, dict):
+                continue
+            line = self._normalize_line(properties.get("linea"))
+            color = properties.get("color")
+            if line and isinstance(color, str) and color.strip():
+                mapping[line] = color.strip()
+
+        if mapping:
+            _LINE_COLOR_CACHE["data"] = mapping
+            _LINE_COLOR_CACHE["expires_at"] = now + LINE_COLOR_CACHE_TTL_SECONDS
+            return mapping
+
+        return cached
 
     async def get_estimacion(self, stop_id):
         url = ESTIMACION_URL.format(stop_id)
@@ -330,6 +377,7 @@ class VigoBusApi:
             lat, lon, margin_m=margin_m, max_candidates=max_candidates, logger=logger
         )
         line_filter = self._normalize_line(line) if line else None
+        line_colors = await self.get_line_colors(logger=logger)
 
         results = []
         for stop in candidates:
@@ -364,6 +412,7 @@ class VigoBusApi:
                             "ruta": item.get("ruta"),
                             "metros": item.get("metros"),
                             "minutos": minutos,
+                            "color": line_colors.get(self._normalize_line(item.get("linea"))),
                         }
                     )
             buses.sort(key=lambda item: item["minutos"])

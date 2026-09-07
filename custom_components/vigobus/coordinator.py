@@ -43,6 +43,7 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         self.closest_stop = None
         self._closest_stops = {}
         self._nearest_anchor = {}
+        self._line_colors = {}
         self._last_success_at = None
         self._last_error_at = None
         self._consecutive_failures = 0
@@ -330,6 +331,14 @@ class VigoBusCoordinator(DataUpdateCoordinator):
                         alerts_index = await self.api.get_line_alerts(lang="es", logger=_LOGGER)
                     except Exception:
                         alerts_index = {}
+
+            try:
+                # Cached for a day inside VigoBusApi, so this is cheap on every
+                # scan cycle; keep the previous map on failure rather than
+                # blanking out colors for a transient network error.
+                self._line_colors = await self.api.get_line_colors(logger=_LOGGER) or self._line_colors
+            except Exception:
+                _LOGGER.debug("VigoBus: unable to refresh line colors, keeping previous values")
 
             for key, name, lat, lon in self._nearest_targets():
                 entry = await self._resolve_nearest_target(
