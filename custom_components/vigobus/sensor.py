@@ -264,6 +264,12 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
         attrs["stop_key"] = self.stop_key
         attrs["stop_name"] = entry_data.get("stop_name") or self._display_name
         attrs["line_filter"] = self._line_filter or None
+        # Explicit flag so consumers (the companion card) can reliably tell a
+        # per-device/person nearest sensor apart from the home "nearest" one
+        # or a manually configured extra stop, without having to infer it
+        # from the entity_id — which is derived from the (localized) name
+        # and isn't a stable signal across languages.
+        attrs["is_device_nearest"] = self.stop_key != "nearest" and self.stop_key.startswith("nearest_")
         attrs["updated_at"] = entry_data.get("updated_at")
         attrs["lines"] = entry_data.get("lines", [])
         attrs["alerts"] = entry_data.get("alerts", [])
