@@ -198,25 +198,26 @@ async def _parse_extra_stops(hass, raw_value):
     for text in records:
 
         if "," in text:
-            parts = text.split(",", 1)
+            parts = text.split(",", 2)
         elif ";" in text:
-            parts = text.split(";", 1)
+            parts = text.split(";", 2)
         else:
             token = text.strip()
             if token.isdigit():
-                raw_entries.append({"kind": "id", "id": token, "name": f"stop_{token}"})
+                raw_entries.append({"kind": "id", "id": token, "name": f"stop_{token}", "line": ""})
             else:
-                raw_entries.append({"kind": "search", "query": token})
+                raw_entries.append({"kind": "search", "query": token, "line": ""})
             needs_catalog = True
             continue
 
         stop_id = parts[0].strip()
-        name = parts[1].strip() or f"stop_{stop_id}"
+        name = (parts[1].strip() if len(parts) > 1 else "") or f"stop_{stop_id}"
+        line = parts[2].strip() if len(parts) > 2 else ""
         if not stop_id:
             errors = True
             continue
 
-        raw_entries.append({"kind": "explicit", "id": stop_id, "name": name})
+        raw_entries.append({"kind": "explicit", "id": stop_id, "name": name, "line": line})
 
     catalog = []
     if needs_catalog:
@@ -225,6 +226,8 @@ async def _parse_extra_stops(hass, raw_value):
     id_index = _build_catalog_id_index(catalog)
 
     for entry in raw_entries:
+        line = str(entry.get("line", "") or "").strip()
+
         if entry["kind"] in ("explicit", "id"):
             stop_id = str(entry["id"]).strip()
             if not stop_id:
@@ -255,7 +258,7 @@ async def _parse_extra_stops(hass, raw_value):
 
         seen_ids.add(key_id)
         seen_names.add(key_name)
-        extra_stops.append({"id": stop_id, "name": name})
+        extra_stops.append({"id": stop_id, "name": name, "line": line})
 
     return extra_stops, errors
 
@@ -283,6 +286,7 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             True,
                         ),
                         "nearest_name": user_input.get("nearest_name", "").strip(),
+                        "nearest_line_filter": user_input.get("nearest_line_filter", "").strip(),
                         "nearest_devices": list(user_input.get("nearest_devices", []) or []),
                         "auto_nearest_devices": bool(
                             user_input.get("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
@@ -311,6 +315,7 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Optional("auto_nearest", default=True): bool,
                 vol.Optional("nearest_name", default=""): str,
+                vol.Optional("nearest_line_filter", default=""): str,
                 vol.Optional("nearest_devices", default=[]): selector(
                     {"entity": {"multiple": True, "domain": ["device_tracker", "person"]}}
                 ),
@@ -373,6 +378,7 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
         self._catalog = None
         self._search_choices = {}
         self._pending_custom_name = ""
+        self._pending_line_filter = ""
 
     def _entry_value(self, key, default=None):
         if self._draft is not None and key in self._draft:
@@ -388,6 +394,7 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
         self._draft = {
             "auto_nearest": bool(self._entry_value("auto_nearest", True)),
             "nearest_name": str(self._entry_value("nearest_name", "") or "").strip(),
+            "nearest_line_filter": str(self._entry_value("nearest_line_filter", "") or "").strip(),
             "nearest_devices": list(self._entry_value("nearest_devices", []) or []),
             "auto_nearest_devices": bool(
                 self._entry_value("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
@@ -430,6 +437,7 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                 {
                     "auto_nearest": bool(user_input.get("auto_nearest", True)),
                     "nearest_name": str(user_input.get("nearest_name", "")).strip(),
+                    "nearest_line_filter": str(user_input.get("nearest_line_filter", "")).strip(),
                     "nearest_devices": list(user_input.get("nearest_devices", []) or []),
                     "auto_nearest_devices": bool(
                         user_input.get("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
@@ -458,6 +466,9 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             {
                 vol.Optional("auto_nearest", default=self._draft["auto_nearest"]): bool,
                 vol.Optional("nearest_name", default=self._draft["nearest_name"]): str,
+                vol.Optional(
+                    "nearest_line_filter", default=self._draft["nearest_line_filter"]
+                ): str,
                 vol.Optional(
                     "nearest_devices", default=self._draft["nearest_devices"]
                 ): selector(
@@ -514,7 +525,9 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             query = str(user_input.get("search_query", "") or "").strip()
             custom_name = str(user_input.get("custom_name", "") or "").strip()
+            line_filter = str(user_input.get("line_filter", "") or "").strip()
             self._pending_custom_name = custom_name
+            self._pending_line_filter = line_filter
 
             try:
                 catalog = await self._load_catalog()
@@ -546,6 +559,7 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             {
                 vol.Required("search_query", default=""): str,
                 vol.Optional("custom_name", default=""): str,
+                vol.Optional("line_filter", default=""): str,
             }
         )
         return self.async_show_form(step_id="add_stop_search", data_schema=schema, errors=errors)
@@ -567,24 +581,26 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             stop_id = str(chosen.get("id") or "").strip()
             stop_name = str(chosen.get("name") or "").strip()
             name = str(self._pending_custom_name or "").strip() or stop_name
+            line = str(self._pending_line_filter or "").strip()
 
             if stop_id:
                 updated = []
                 replaced = False
                 for stop in self._draft["extra_stops"]:
                     if str(stop.get("id", "")).strip() == stop_id:
-                        updated.append({"id": stop_id, "name": name})
+                        updated.append({"id": stop_id, "name": name, "line": line})
                         replaced = True
                     else:
                         updated.append(stop)
 
                 if not replaced:
-                    updated.append({"id": stop_id, "name": name})
+                    updated.append({"id": stop_id, "name": name, "line": line})
 
                 self._draft["extra_stops"] = updated
 
             self._search_choices = {}
             self._pending_custom_name = ""
+            self._pending_line_filter = ""
             return await self.async_step_init()
 
         schema = vol.Schema(

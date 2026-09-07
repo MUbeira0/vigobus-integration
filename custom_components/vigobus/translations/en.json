@@ -3,10 +3,11 @@
     "step": {
       "user": {
         "title": "VigoBus",
-        "description": "Realtime Vigo buses",
+        "description": "Realtime buses Vigo",
         "data": {
-          "auto_nearest": "Automatic nearest stop",
+          "auto_nearest": "Auto nearest stop",
           "nearest_name": "Nearest stop custom name",
+          "nearest_line_filter": "Nearest stop line filter (optional, e.g. C1)",
           "nearest_devices": "Nearest stop for these devices (person / GPS tracker)",
           "auto_nearest_devices": "Auto-create a nearest stop for every device (person / GPS tracker)",
           "scan_interval": "Update interval (seconds)",
@@ -16,12 +17,12 @@
           "notify_cooldown_min": "Alert cooldown (minutes)",
           "alerts_lang": "Alerts language (es/gl)",
           "alerts_max_per_stop": "Max alerts per stop",
-          "extra_stops": "Extra stops (single line: id,name | 1234 | urzaiz)"
+          "extra_stops": "Extra stops (single line: id,name,line | 1234 | urzaiz)"
         }
       }
     },
     "error": {
-      "invalid_extra_stops": "Some extra stop values are invalid. Use id,name | 1234 | urzaiz."
+      "invalid_extra_stops": "Some extra stop values are invalid. Use id,name,line | 1234 | urzaiz."
     }
   },
   "options": {
@@ -39,8 +40,9 @@
       "edit_general": {
         "title": "General settings",
         "data": {
-          "auto_nearest": "Automatic nearest stop",
+          "auto_nearest": "Auto nearest stop",
           "nearest_name": "Nearest stop custom name",
+          "nearest_line_filter": "Nearest stop line filter (optional, e.g. C1)",
           "nearest_devices": "Nearest stop for these devices (person / GPS tracker)",
           "auto_nearest_devices": "Auto-create a nearest stop for every device (person / GPS tracker)",
           "scan_interval": "Update interval (seconds)",
@@ -57,7 +59,8 @@
         "description": "Type a stop name or ID and choose one from the list.",
         "data": {
           "search_query": "Stop name or ID",
-          "custom_name": "Custom name (optional)"
+          "custom_name": "Custom name (optional)",
+          "line_filter": "Line filter (optional, e.g. C1)"
         }
       },
       "add_stop_select": {
@@ -74,7 +77,7 @@
       }
     },
     "error": {
-      "invalid_extra_stops": "Some extra stop values are invalid. Use id,name | 1234 | urzaiz.",
+      "invalid_extra_stops": "Some extra stop values are invalid. Use id,name,line | 1234 | urzaiz.",
       "invalid_stop_search": "No matching stops found for that search."
     }
   }

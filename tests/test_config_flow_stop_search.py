@@ -199,7 +199,7 @@ class ConfigFlowStopSearchTests(unittest.IsolatedAsyncioTestCase):
             stops, has_errors = await config_flow._parse_extra_stops(object(), "3493")
 
         self.assertFalse(has_errors)
-        self.assertEqual(stops, [{"id": "6930", "name": "Praza de America 1"}])
+        self.assertEqual(stops, [{"id": "6930", "name": "Praza de America 1", "line": ""}])
 
     async def test_parse_search_uses_catalog_name_when_no_custom_name(self):
         catalog = [
@@ -219,7 +219,7 @@ class ConfigFlowStopSearchTests(unittest.IsolatedAsyncioTestCase):
             stops, has_errors = await config_flow._parse_extra_stops(object(), "praza america")
 
         self.assertFalse(has_errors)
-        self.assertEqual(stops, [{"id": "6930", "name": "Praza de America 1"}])
+        self.assertEqual(stops, [{"id": "6930", "name": "Praza de America 1", "line": ""}])
 
     async def test_catalog_cache_reuses_previous_data_until_ttl(self):
         class FakeApi:

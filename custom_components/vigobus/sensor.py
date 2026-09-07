@@ -4,6 +4,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 
 
+def _normalize_line(value):
+    return str(value or "").strip().upper().replace(" ", "")
+
+
 def _unique_text_items(*values):
     items = []
     seen = set()
@@ -48,17 +52,21 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     nearest_name = str(entry_value("nearest_name", "") or "").strip()
     nearest_label = nearest_name or _get_default_nearest_label(hass)
+    nearest_line_filter = str(entry_value("nearest_line_filter", "") or "").strip()
 
     entities = []
     keys = set()
+    line_filters = {}
 
     if entry_value("auto_nearest", True):
         keys.add("nearest")
+        line_filters["nearest"] = nearest_line_filter
 
     for stop in entry_value("extra_stops", []):
         name = stop.get("name")
         if name:
             keys.add(name)
+            line_filters[name] = str(stop.get("line", "") or "").strip()
 
     for key in (coordinator.data or {}):
         keys.add(key)
@@ -82,23 +90,41 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     for key in sorted(keys):
         label = _label_for(key)
-        add_entity(VigoBusSensor(coordinator, key, entry_id=entry_id, display_name=label))
-        add_entity(VigoBusLineSensor(coordinator, key, entry_id=entry_id, display_name=label))
-        add_entity(VigoBusRouteSensor(coordinator, key, entry_id=entry_id, display_name=label))
-        add_entity(VigoBusUpcomingSensor(coordinator, key, entry_id=entry_id, display_name=label))
+        line_filter = line_filters.get(key, "")
+        add_entity(
+            VigoBusSensor(
+                coordinator, key, entry_id=entry_id, display_name=label, line_filter=line_filter
+            )
+        )
+        add_entity(
+            VigoBusLineSensor(
+                coordinator, key, entry_id=entry_id, display_name=label, line_filter=line_filter
+            )
+        )
+        add_entity(
+            VigoBusRouteSensor(
+                coordinator, key, entry_id=entry_id, display_name=label, line_filter=line_filter
+            )
+        )
+        add_entity(
+            VigoBusUpcomingSensor(
+                coordinator, key, entry_id=entry_id, display_name=label, line_filter=line_filter
+            )
+        )
 
     async_add_entities(entities)
 
 
 
 class VigoBusSensor(CoordinatorEntity, SensorEntity):
-    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None):
+    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None, line_filter=None):
         super().__init__(coordinator)
 
         self.stop_key = stop_key
         key_id = str(stop_key).lower().replace(" ", "_")
         self._entry_id = entry_id or "default"
         self._display_name = display_name or stop_key
+        self._line_filter = str(line_filter or "").strip()
 
         self._attr_name = f"VigoBus {self._display_name}"
         self._attr_unique_id = f"vigobus_{self._entry_id}_{key_id}"
@@ -177,6 +203,8 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
             if not isinstance(estimaciones, list):
                 return []
 
+            line_filter = _normalize_line(self._line_filter)
+
             valid = []
             for bus in estimaciones:
                 if not isinstance(bus, dict):
@@ -185,6 +213,9 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
                 try:
                     minutos = int(minutos)
                 except (TypeError, ValueError):
+                    continue
+
+                if line_filter and _normalize_line(bus.get("linea")) != line_filter:
                     continue
 
                 valid.append(
@@ -232,6 +263,7 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
 
         attrs["stop_key"] = self.stop_key
         attrs["stop_name"] = entry_data.get("stop_name") or self._display_name
+        attrs["line_filter"] = self._line_filter or None
         attrs["updated_at"] = entry_data.get("updated_at")
         attrs["lines"] = entry_data.get("lines", [])
         attrs["alerts"] = entry_data.get("alerts", [])
@@ -248,8 +280,10 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
 
 
 class VigoBusLineSensor(VigoBusSensor):
-    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None):
-        super().__init__(coordinator, stop_key, entry_id=entry_id, display_name=display_name)
+    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None, line_filter=None):
+        super().__init__(
+            coordinator, stop_key, entry_id=entry_id, display_name=display_name, line_filter=line_filter
+        )
         key_id = str(stop_key).lower().replace(" ", "_")
         self._attr_name = f"VigoBus {self._display_name} linea"
         self._attr_unique_id = f"vigobus_{self._entry_id}_{key_id}_linea"
@@ -266,8 +300,10 @@ class VigoBusLineSensor(VigoBusSensor):
 
 
 class VigoBusRouteSensor(VigoBusSensor):
-    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None):
-        super().__init__(coordinator, stop_key, entry_id=entry_id, display_name=display_name)
+    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None, line_filter=None):
+        super().__init__(
+            coordinator, stop_key, entry_id=entry_id, display_name=display_name, line_filter=line_filter
+        )
         key_id = str(stop_key).lower().replace(" ", "_")
         self._attr_name = f"VigoBus {self._display_name} ruta"
         self._attr_unique_id = f"vigobus_{self._entry_id}_{key_id}_ruta"
@@ -284,8 +320,10 @@ class VigoBusRouteSensor(VigoBusSensor):
 
 
 class VigoBusUpcomingSensor(VigoBusSensor):
-    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None):
-        super().__init__(coordinator, stop_key, entry_id=entry_id, display_name=display_name)
+    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None, line_filter=None):
+        super().__init__(
+            coordinator, stop_key, entry_id=entry_id, display_name=display_name, line_filter=line_filter
+        )
         key_id = str(stop_key).lower().replace(" ", "_")
         self._attr_name = f"VigoBus {self._display_name} proximos"
         self._attr_unique_id = f"vigobus_{self._entry_id}_{key_id}_proximos"

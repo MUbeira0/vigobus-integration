@@ -7,6 +7,7 @@
         "data": {
           "auto_nearest": "Parada cercana automática",
           "nearest_name": "Nombre personalizado para la cercana",
+          "nearest_line_filter": "Filtro de línea para la cercana (opcional, ej. C1)",
           "nearest_devices": "Parada más cercana para estos dispositivos (persona / GPS)",
           "auto_nearest_devices": "Crear automáticamente una parada cercana por cada dispositivo (persona / GPS)",
           "scan_interval": "Intervalo de actualización (segundos)",
@@ -16,12 +17,12 @@
           "notify_cooldown_min": "Espera entre alertas (minutos)",
           "alerts_lang": "Idioma de avisos (es/gl)",
           "alerts_max_per_stop": "Máximo de avisos por parada",
-          "extra_stops": "Paradas extra (una línea: id,nombre | 1234 | urzaiz)"
+          "extra_stops": "Paradas extra (una línea: id,nombre,línea | 1234 | urzaiz)"
         }
       }
     },
     "error": {
-      "invalid_extra_stops": "Hay valores inválidos en paradas extra. Usa id,nombre | 1234 | urzaiz."
+      "invalid_extra_stops": "Hay valores inválidos en paradas extra. Usa id,nombre,línea | 1234 | urzaiz."
     }
   },
   "options": {
@@ -41,6 +42,7 @@
         "data": {
           "auto_nearest": "Parada cercana automática",
           "nearest_name": "Nombre personalizado para la cercana",
+          "nearest_line_filter": "Filtro de línea para la cercana (opcional, ej. C1)",
           "nearest_devices": "Parada más cercana para estos dispositivos (persona / GPS)",
           "auto_nearest_devices": "Crear automáticamente una parada cercana por cada dispositivo (persona / GPS)",
           "scan_interval": "Intervalo de actualización (segundos)",
@@ -57,7 +59,8 @@
         "description": "Escribe nombre o ID de parada y elige una opción de la lista.",
         "data": {
           "search_query": "Nombre o ID de parada",
-          "custom_name": "Nombre personalizado (opcional)"
+          "custom_name": "Nombre personalizado (opcional)",
+          "line_filter": "Filtro de línea (opcional, ej. C1)"
         }
       },
       "add_stop_select": {
@@ -74,7 +77,7 @@
       }
     },
     "error": {
-      "invalid_extra_stops": "Hay valores inválidos en paradas extra. Usa id,nombre | 1234 | urzaiz.",
+      "invalid_extra_stops": "Hay valores inválidos en paradas extra. Usa id,nombre,línea | 1234 | urzaiz.",
       "invalid_stop_search": "No se encontraron paradas para esa búsqueda."
     }
   }

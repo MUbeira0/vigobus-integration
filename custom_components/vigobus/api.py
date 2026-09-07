@@ -316,16 +316,20 @@ class VigoBusApi:
 
         return candidates
 
-    async def get_nearest_stops_with_eta(self, lat, lon, margin_m=60, max_candidates=3, logger=None):
+    async def get_nearest_stops_with_eta(
+        self, lat, lon, margin_m=60, max_candidates=3, line=None, logger=None
+    ):
         """Nearest candidate stops plus their upcoming buses, for a one-off lookup.
 
         Used by the stateless "nearest_stops" service: the caller (typically a
         dashboard card) supplies coordinates read live from the viewing
         device's own geolocation, so this is not tied to any stored location.
+        When "line" is set, only buses for that line are kept.
         """
         candidates = await self.get_nearest_stops(
             lat, lon, margin_m=margin_m, max_candidates=max_candidates, logger=logger
         )
+        line_filter = self._normalize_line(line) if line else None
 
         results = []
         for stop in candidates:
@@ -351,6 +355,8 @@ class VigoBusApi:
                     try:
                         minutos = int(item.get("minutos"))
                     except (TypeError, ValueError):
+                        continue
+                    if line_filter and self._normalize_line(item.get("linea")) != line_filter:
                         continue
                     buses.append(
                         {

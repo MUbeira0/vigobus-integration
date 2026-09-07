@@ -64,6 +64,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 max_candidates=call.data.get(
                     "max_candidates", DEFAULT_DEVICE_NEAREST_MAX_CANDIDATES
                 ),
+                line=call.data.get("line") or None,
             )
             return {"candidates": candidates}
 
@@ -89,6 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                             max=MAX_DEVICE_NEAREST_MAX_CANDIDATES,
                         ),
                     ),
+                    vol.Optional("line"): str,
                 }
             ),
             supports_response=SupportsResponse.ONLY,

@@ -53,3 +53,7 @@ nearest_stops:
         number:
           min: 1
           max: 5
+    line:
+      name: Line
+      description: Only return buses for this line (e.g. "C1"). Leave empty for all lines.
+      example: "C1"
