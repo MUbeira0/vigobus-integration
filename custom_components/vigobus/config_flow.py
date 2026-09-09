@@ -267,49 +267,46 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        errors = {}
-
+        # Extra stops used to be a raw text field right here ("id,name,line
+        # | 1234 | urzaiz"), asking a brand-new user to learn a text format
+        # before they'd even seen the integration work once. The Options
+        # flow's guided search-and-pick UI (and its bulk-paste fallback for
+        # power users) is a much better place for that — first-time setup
+        # only asks what's needed to get the home nearest-stop sensor
+        # working, and stops can always be added afterwards via Configure.
         if user_input is not None:
-            extra_stops, has_invalid_lines = await _parse_extra_stops(
-                self.hass,
-                user_input.get("extra_stops", ""),
+            return self.async_create_entry(
+                title="VigoBus",
+                data={
+                    "auto_nearest": user_input.get(
+                        "auto_nearest",
+                        True,
+                    ),
+                    "nearest_name": user_input.get("nearest_name", "").strip(),
+                    "nearest_line_filter": user_input.get("nearest_line_filter", "").strip(),
+                    "nearest_devices": list(user_input.get("nearest_devices", []) or []),
+                    "auto_nearest_devices": bool(
+                        user_input.get("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
+                    ),
+                    "extra_stops": [],
+                    "scan_interval": int(user_input.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
+                    "nearest_recalc_distance_m": int(
+                        user_input.get(
+                            "nearest_recalc_distance_m",
+                            DEFAULT_NEAREST_RECALC_DISTANCE_M,
+                        )
+                    ),
+                    "notify_enabled": bool(user_input.get("notify_enabled", DEFAULT_NOTIFY_ENABLED)),
+                    "notify_minutes": int(user_input.get("notify_minutes", DEFAULT_NOTIFY_MINUTES)),
+                    "notify_cooldown_min": int(
+                        user_input.get("notify_cooldown_min", DEFAULT_NOTIFY_COOLDOWN_MIN)
+                    ),
+                    "alerts_lang": str(user_input.get("alerts_lang", DEFAULT_ALERTS_LANG)),
+                    "alerts_max_per_stop": int(
+                        user_input.get("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP)
+                    ),
+                },
             )
-            if has_invalid_lines:
-                errors["base"] = "invalid_extra_stops"
-
-            if not errors:
-                return self.async_create_entry(
-                    title="VigoBus",
-                    data={
-                        "auto_nearest": user_input.get(
-                            "auto_nearest",
-                            True,
-                        ),
-                        "nearest_name": user_input.get("nearest_name", "").strip(),
-                        "nearest_line_filter": user_input.get("nearest_line_filter", "").strip(),
-                        "nearest_devices": list(user_input.get("nearest_devices", []) or []),
-                        "auto_nearest_devices": bool(
-                            user_input.get("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
-                        ),
-                        "extra_stops": extra_stops,
-                        "scan_interval": int(user_input.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
-                        "nearest_recalc_distance_m": int(
-                            user_input.get(
-                                "nearest_recalc_distance_m",
-                                DEFAULT_NEAREST_RECALC_DISTANCE_M,
-                            )
-                        ),
-                        "notify_enabled": bool(user_input.get("notify_enabled", DEFAULT_NOTIFY_ENABLED)),
-                        "notify_minutes": int(user_input.get("notify_minutes", DEFAULT_NOTIFY_MINUTES)),
-                        "notify_cooldown_min": int(
-                            user_input.get("notify_cooldown_min", DEFAULT_NOTIFY_COOLDOWN_MIN)
-                        ),
-                        "alerts_lang": str(user_input.get("alerts_lang", DEFAULT_ALERTS_LANG)),
-                        "alerts_max_per_stop": int(
-                            user_input.get("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP)
-                        ),
-                    },
-                )
 
         schema = vol.Schema(
             {
@@ -353,17 +350,12 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Coerce(int),
                     vol.Range(min=MIN_ALERTS_MAX_PER_STOP, max=MAX_ALERTS_MAX_PER_STOP),
                 ),
-                vol.Optional(
-                    "extra_stops",
-                    default="",
-                ): str,
             }
         )
 
         return self.async_show_form(
             step_id="user",
             data_schema=schema,
-            errors=errors,
         )
 
     @staticmethod
@@ -426,10 +418,18 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
         self._ensure_draft()
         return self.async_show_menu(
             step_id="init",
-            menu_options=["edit_general", "add_stop_search", "remove_stop", "finish"],
+            menu_options=[
+                "edit_location",
+                "edit_notifications",
+                "edit_alerts",
+                "add_stop_search",
+                "add_stops_bulk",
+                "remove_stop",
+                "finish",
+            ],
         )
 
-    async def async_step_edit_general(self, user_input=None):
+    async def async_step_edit_location(self, user_input=None):
         self._ensure_draft()
 
         if user_input is not None:
@@ -442,22 +442,13 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                     "auto_nearest_devices": bool(
                         user_input.get("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
                     ),
-                    "scan_interval": int(user_input.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
                     "nearest_recalc_distance_m": int(
                         user_input.get(
                             "nearest_recalc_distance_m",
                             DEFAULT_NEAREST_RECALC_DISTANCE_M,
                         )
                     ),
-                    "notify_enabled": bool(user_input.get("notify_enabled", DEFAULT_NOTIFY_ENABLED)),
-                    "notify_minutes": int(user_input.get("notify_minutes", DEFAULT_NOTIFY_MINUTES)),
-                    "notify_cooldown_min": int(
-                        user_input.get("notify_cooldown_min", DEFAULT_NOTIFY_COOLDOWN_MIN)
-                    ),
-                    "alerts_lang": str(user_input.get("alerts_lang", DEFAULT_ALERTS_LANG)),
-                    "alerts_max_per_stop": int(
-                        user_input.get("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP)
-                    ),
+                    "scan_interval": int(user_input.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
                 }
             )
             return await self.async_step_init()
@@ -477,10 +468,6 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(
                     "auto_nearest_devices", default=self._draft["auto_nearest_devices"]
                 ): bool,
-                vol.Optional("scan_interval", default=self._draft["scan_interval"]): vol.All(
-                    vol.Coerce(int),
-                    vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
-                ),
                 vol.Optional(
                     "nearest_recalc_distance_m",
                     default=self._draft["nearest_recalc_distance_m"],
@@ -491,6 +478,32 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                         max=MAX_NEAREST_RECALC_DISTANCE_M,
                     ),
                 ),
+                vol.Optional("scan_interval", default=self._draft["scan_interval"]): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
+                ),
+            }
+        )
+
+        return self.async_show_form(step_id="edit_location", data_schema=schema, errors={})
+
+    async def async_step_edit_notifications(self, user_input=None):
+        self._ensure_draft()
+
+        if user_input is not None:
+            self._draft.update(
+                {
+                    "notify_enabled": bool(user_input.get("notify_enabled", DEFAULT_NOTIFY_ENABLED)),
+                    "notify_minutes": int(user_input.get("notify_minutes", DEFAULT_NOTIFY_MINUTES)),
+                    "notify_cooldown_min": int(
+                        user_input.get("notify_cooldown_min", DEFAULT_NOTIFY_COOLDOWN_MIN)
+                    ),
+                }
+            )
+            return await self.async_step_init()
+
+        schema = vol.Schema(
+            {
                 vol.Optional("notify_enabled", default=self._draft["notify_enabled"]): bool,
                 vol.Optional("notify_minutes", default=self._draft["notify_minutes"]): vol.All(
                     vol.Coerce(int),
@@ -503,6 +516,27 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                     vol.Coerce(int),
                     vol.Range(min=MIN_NOTIFY_COOLDOWN_MIN, max=MAX_NOTIFY_COOLDOWN_MIN),
                 ),
+            }
+        )
+
+        return self.async_show_form(step_id="edit_notifications", data_schema=schema, errors={})
+
+    async def async_step_edit_alerts(self, user_input=None):
+        self._ensure_draft()
+
+        if user_input is not None:
+            self._draft.update(
+                {
+                    "alerts_lang": str(user_input.get("alerts_lang", DEFAULT_ALERTS_LANG)),
+                    "alerts_max_per_stop": int(
+                        user_input.get("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP)
+                    ),
+                }
+            )
+            return await self.async_step_init()
+
+        schema = vol.Schema(
+            {
                 vol.Optional("alerts_lang", default=self._draft["alerts_lang"]): vol.In(
                     ["es", "en", "gl"]
                 ),
@@ -516,7 +550,7 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             }
         )
 
-        return self.async_show_form(step_id="edit_general", data_schema=schema, errors={})
+        return self.async_show_form(step_id="edit_alerts", data_schema=schema, errors={})
 
     async def async_step_add_stop_search(self, user_input=None):
         self._ensure_draft()
@@ -609,6 +643,41 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             }
         )
         return self.async_show_form(step_id="add_stop_select", data_schema=schema, errors={})
+
+    async def async_step_add_stops_bulk(self, user_input=None):
+        """Power-user shortcut: paste several "id,name,line" stops at once.
+
+        The guided search above is the recommended path for most people;
+        this is for anyone who already knows the stop IDs they want and
+        would rather not repeat the search-and-pick flow N times.
+        """
+        self._ensure_draft()
+        errors = {}
+
+        if user_input is not None:
+            new_stops, has_invalid_lines = await _parse_extra_stops(
+                self.hass,
+                user_input.get("extra_stops_bulk", ""),
+            )
+            if has_invalid_lines:
+                errors["base"] = "invalid_extra_stops"
+            elif new_stops:
+                existing = list(self._draft["extra_stops"])
+                by_id = {str(stop.get("id", "")).strip(): index for index, stop in enumerate(existing)}
+                for stop in new_stops:
+                    stop_id = str(stop.get("id", "")).strip()
+                    if stop_id in by_id:
+                        existing[by_id[stop_id]] = stop
+                    else:
+                        by_id[stop_id] = len(existing)
+                        existing.append(stop)
+                self._draft["extra_stops"] = existing
+                return await self.async_step_init()
+            else:
+                return await self.async_step_init()
+
+        schema = vol.Schema({vol.Optional("extra_stops_bulk", default=""): str})
+        return self.async_show_form(step_id="add_stops_bulk", data_schema=schema, errors=errors)
 
     async def async_step_remove_stop(self, user_input=None):
         self._ensure_draft()

@@ -47,12 +47,38 @@ def install_stubs():
         # homeassistant.config_entries
         config_entries = types.ModuleType("homeassistant.config_entries")
 
-        class ConfigFlow:
+        class _FlowResultMixin:
+            """Minimal stand-in for HA's FlowHandler result helpers.
+
+            Real Home Assistant returns richer FlowResult objects; this only
+            reproduces the bits (type/step_id/errors/menu_options) our tests
+            actually assert on.
+            """
+
+            def async_show_form(self, step_id, data_schema=None, errors=None, **kwargs):
+                return {
+                    "type": "form",
+                    "step_id": step_id,
+                    "data_schema": data_schema,
+                    "errors": errors or {},
+                }
+
+            def async_show_menu(self, step_id, menu_options=None, **kwargs):
+                return {
+                    "type": "menu",
+                    "step_id": step_id,
+                    "menu_options": menu_options or [],
+                }
+
+            def async_create_entry(self, title="", data=None, **kwargs):
+                return {"type": "create_entry", "title": title, "data": data or {}}
+
+        class ConfigFlow(_FlowResultMixin):
             def __init_subclass__(cls, **kwargs):
                 # HA passes domain=... when subclassing ConfigFlow.
                 return None
 
-        class OptionsFlow:
+        class OptionsFlow(_FlowResultMixin):
             def __init__(self, *args, **kwargs):
                 self.hass = None
 

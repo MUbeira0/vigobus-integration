@@ -42,6 +42,13 @@ Add the integration from Home Assistant UI:
 - Add Integration
 - Search for `VigoBus Pro`
 
+First-time setup only asks what's needed for the home nearest-stop sensor —
+extra stops are added afterwards from **Configure**, which has a guided
+search-and-pick UI (and a paste-a-list option for anyone who already knows
+their stop IDs). **Configure** is also split into three focused sections
+instead of one long form: Location & nearest stop, Notifications, and
+Alerts.
+
 ## Supported data
 
 - Real-time ETA for Vigo urban bus stops

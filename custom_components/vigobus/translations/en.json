@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "VigoBus",
-        "description": "Realtime buses Vigo",
+        "description": "Realtime buses Vigo. You can add extra stops after setup, from Configure.",
         "data": {
           "auto_nearest": "Auto nearest stop",
           "nearest_name": "Nearest stop custom name",
@@ -16,40 +16,52 @@
           "notify_minutes": "Alert threshold (minutes)",
           "notify_cooldown_min": "Alert cooldown (minutes)",
           "alerts_lang": "Alerts language (es/gl)",
-          "alerts_max_per_stop": "Max alerts per stop",
-          "extra_stops": "Extra stops (single line: id,name,line | 1234 | urzaiz)"
+          "alerts_max_per_stop": "Max alerts per stop"
         }
       }
-    },
-    "error": {
-      "invalid_extra_stops": "Some extra stop values are invalid. Use id,name,line | 1234 | urzaiz."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "VigoBus options",
-        "description": "Manage general settings and extra stops.",
+        "description": "Manage settings and stops.",
         "menu_options": {
-          "edit_general": "General settings",
+          "edit_location": "Location & nearest stop",
+          "edit_notifications": "Notifications",
+          "edit_alerts": "Alerts",
           "add_stop_search": "Add stop (search)",
+          "add_stops_bulk": "Add stops (paste list)",
           "remove_stop": "Remove stop",
           "finish": "Save and finish"
         }
       },
-      "edit_general": {
-        "title": "General settings",
+      "edit_location": {
+        "title": "Location & nearest stop",
         "data": {
           "auto_nearest": "Auto nearest stop",
           "nearest_name": "Nearest stop custom name",
           "nearest_line_filter": "Nearest stop line filter (optional, e.g. C1)",
           "nearest_devices": "Nearest stop for these devices (person / GPS tracker)",
           "auto_nearest_devices": "Auto-create a nearest stop for every device (person / GPS tracker)",
-          "scan_interval": "Update interval (seconds)",
           "nearest_recalc_distance_m": "Nearest recalc distance (meters)",
+          "scan_interval": "Update interval (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "How often every sensor refreshes except the dashboard card's own \"my location\" mode: the home nearest stop, extra stops, and every per-device nearest sensor. \"My location\" has its own separate refresh setting in the card."
+        }
+      },
+      "edit_notifications": {
+        "title": "Notifications",
+        "data": {
           "notify_enabled": "Enable automatic alerts",
           "notify_minutes": "Alert threshold (minutes)",
-          "notify_cooldown_min": "Alert cooldown (minutes)",
+          "notify_cooldown_min": "Alert cooldown (minutes)"
+        }
+      },
+      "edit_alerts": {
+        "title": "Alerts",
+        "data": {
           "alerts_lang": "Alerts language (es/gl)",
           "alerts_max_per_stop": "Max alerts per stop"
         }
@@ -67,6 +79,13 @@
         "title": "Choose stop",
         "data": {
           "stop_choice": "Matching stops"
+        }
+      },
+      "add_stops_bulk": {
+        "title": "Add stops (paste list)",
+        "description": "For anyone who already knows the stop IDs. One line, entries separated by \" | \": id,name,line — e.g. 1234,Urzaiz,C1 | 5678,Colón",
+        "data": {
+          "extra_stops_bulk": "Stops"
         }
       },
       "remove_stop": {

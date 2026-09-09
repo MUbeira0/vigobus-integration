@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "VigoBus",
-        "description": "Integración buses realtime Vigo",
+        "description": "Integración buses realtime Vigo. Puedes añadir paradas extra después, desde Configurar.",
         "data": {
           "auto_nearest": "Parada cercana automática",
           "nearest_name": "Nombre personalizado para la cercana",
@@ -16,40 +16,52 @@
           "notify_minutes": "Umbral de alerta (minutos)",
           "notify_cooldown_min": "Espera entre alertas (minutos)",
           "alerts_lang": "Idioma de avisos (es/gl)",
-          "alerts_max_per_stop": "Máximo de avisos por parada",
-          "extra_stops": "Paradas extra (una línea: id,nombre,línea | 1234 | urzaiz)"
+          "alerts_max_per_stop": "Máximo de avisos por parada"
         }
       }
-    },
-    "error": {
-      "invalid_extra_stops": "Hay valores inválidos en paradas extra. Usa id,nombre,línea | 1234 | urzaiz."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Opciones VigoBus",
-        "description": "Gestiona la configuración general y las paradas extra.",
+        "description": "Gestiona la configuración y las paradas.",
         "menu_options": {
-          "edit_general": "Configuración general",
+          "edit_location": "Ubicación y parada cercana",
+          "edit_notifications": "Notificaciones",
+          "edit_alerts": "Avisos",
           "add_stop_search": "Añadir parada (buscar)",
+          "add_stops_bulk": "Añadir paradas (pegar lista)",
           "remove_stop": "Eliminar parada",
           "finish": "Guardar y terminar"
         }
       },
-      "edit_general": {
-        "title": "Configuración general",
+      "edit_location": {
+        "title": "Ubicación y parada cercana",
         "data": {
           "auto_nearest": "Parada cercana automática",
           "nearest_name": "Nombre personalizado para la cercana",
           "nearest_line_filter": "Filtro de línea para la cercana (opcional, ej. C1)",
           "nearest_devices": "Parada más cercana para estos dispositivos (persona / GPS)",
           "auto_nearest_devices": "Crear automáticamente una parada cercana por cada dispositivo (persona / GPS)",
-          "scan_interval": "Intervalo de actualización (segundos)",
           "nearest_recalc_distance_m": "Distancia para recalcular cercana (metros)",
+          "scan_interval": "Intervalo de actualización (segundos)"
+        },
+        "data_description": {
+          "scan_interval": "Cada cuánto se actualizan todos los sensores excepto \"mi ubicación\" de la tarjeta: la parada cercana de casa, las paradas extra y cada parada por dispositivo. \"Mi ubicación\" tiene su propio intervalo, configurable en la tarjeta."
+        }
+      },
+      "edit_notifications": {
+        "title": "Notificaciones",
+        "data": {
           "notify_enabled": "Activar alertas automáticas",
           "notify_minutes": "Umbral de alerta (minutos)",
-          "notify_cooldown_min": "Espera entre alertas (minutos)",
+          "notify_cooldown_min": "Espera entre alertas (minutos)"
+        }
+      },
+      "edit_alerts": {
+        "title": "Avisos",
+        "data": {
           "alerts_lang": "Idioma de avisos (es/gl)",
           "alerts_max_per_stop": "Máximo de avisos por parada"
         }
@@ -67,6 +79,13 @@
         "title": "Elegir parada",
         "data": {
           "stop_choice": "Paradas encontradas"
+        }
+      },
+      "add_stops_bulk": {
+        "title": "Añadir paradas (pegar lista)",
+        "description": "Para quien ya conoce los IDs de parada. Una línea, entradas separadas por \" | \": id,nombre,línea — ej. 1234,Urzaiz,C1 | 5678,Colón",
+        "data": {
+          "extra_stops_bulk": "Paradas"
         }
       },
       "remove_stop": {
