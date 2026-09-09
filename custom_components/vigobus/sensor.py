@@ -178,7 +178,7 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
                     lon1 = float(debug["home_lon"])
                     lat2 = float(debug["nearest_lat"])
                     lon2 = float(debug["nearest_lon"])
-                    from math import radians, sin, cos, sqrt, atan2
+                    from math import atan2, cos, radians, sin, sqrt
                     R = 6371000
                     phi1 = radians(lat1)
                     phi2 = radians(lat2)

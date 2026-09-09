@@ -1,7 +1,6 @@
 import asyncio
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, SupportsResponse
 from homeassistant.helpers.aiohttp_client import async_get_clientsession

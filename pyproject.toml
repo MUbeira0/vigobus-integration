@@ -1,0 +1,10 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 130
+
+[tool.ruff.lint]
+# Keep this conservative: real bugs (undefined names, unused imports, syntax
+# issues) and formatting, not style opinions or a "no broad except" policy —
+# several broad excepts here are deliberate (best-effort debug info, keeping
+# previously-cached data on a transient failure rather than crashing).
+select = ["E", "F", "W", "I"]

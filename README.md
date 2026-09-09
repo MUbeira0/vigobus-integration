@@ -22,6 +22,8 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times 
 - Local brand images included (`custom_components/vigobus/brand`) for Home Assistant 2026.3+
 - Lovelace card support through the companion dashboard card repo
 - Stop list, line colors, and alerts are cached in memory (not re-downloaded on every scan cycle) and independent devices/stops are refreshed concurrently, so scans stay fast even with several tracked people or configured stops
+- Backs off automatically after repeated failures instead of retrying at full speed against a backend that's down, and resets to the configured interval as soon as it recovers
+- Diagnostics support: Settings → Devices & Services → VigoBus Pro → Download diagnostics gives a redacted snapshot of coordinator/config state for bug reports, without needing to paste coordinates or custom stop names
 
 ## Installation with HACS
 

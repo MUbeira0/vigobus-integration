@@ -1,35 +1,33 @@
-import voluptuous as vol
 import time
 import unicodedata
 
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
 
 from .api import VigoBusApi
-
 from .const import (
     DEFAULT_ALERTS_LANG,
     DEFAULT_ALERTS_MAX_PER_STOP,
     DEFAULT_AUTO_NEAREST_DEVICES,
+    DEFAULT_NEAREST_RECALC_DISTANCE_M,
     DEFAULT_NOTIFY_COOLDOWN_MIN,
     DEFAULT_NOTIFY_ENABLED,
     DEFAULT_NOTIFY_MINUTES,
-    DEFAULT_NEAREST_RECALC_DISTANCE_M,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     MAX_ALERTS_MAX_PER_STOP,
+    MAX_NEAREST_RECALC_DISTANCE_M,
     MAX_NOTIFY_COOLDOWN_MIN,
     MAX_NOTIFY_MINUTES,
-    MAX_NEAREST_RECALC_DISTANCE_M,
     MAX_SCAN_INTERVAL,
+    MIN_ALERTS_MAX_PER_STOP,
+    MIN_NEAREST_RECALC_DISTANCE_M,
     MIN_NOTIFY_COOLDOWN_MIN,
     MIN_NOTIFY_MINUTES,
-    MIN_NEAREST_RECALC_DISTANCE_M,
-    MIN_ALERTS_MAX_PER_STOP,
     MIN_SCAN_INTERVAL,
 )
-
 
 CATALOG_CACHE_TTL_SECONDS = 15 * 60
 _CATALOG_CACHE = {

@@ -169,6 +169,25 @@ def install_stubs():
         sensor_mod.SensorEntity = SensorEntity
         components.sensor = _register("homeassistant.components.sensor", sensor_mod)
 
+        diagnostics_mod = types.ModuleType("homeassistant.components.diagnostics")
+        REDACTED = "**REDACTED**"
+
+        def _async_redact_data(data, to_redact):
+            if isinstance(data, dict):
+                return {
+                    key: REDACTED if key in to_redact else _async_redact_data(value, to_redact)
+                    for key, value in data.items()
+                }
+            if isinstance(data, list):
+                return [_async_redact_data(item, to_redact) for item in data]
+            return data
+
+        diagnostics_mod.REDACTED = REDACTED
+        diagnostics_mod.async_redact_data = _async_redact_data
+        components.diagnostics = _register(
+            "homeassistant.components.diagnostics", diagnostics_mod
+        )
+
         # homeassistant.util (+ util.dt) and slugify
         util = _register("homeassistant.util", types.ModuleType("homeassistant.util"))
         ha.util = util

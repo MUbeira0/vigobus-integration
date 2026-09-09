@@ -5,8 +5,9 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/MUbeira0/vigobus-integration",
+  "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/MUbeira0/vigobus-integration/issues",
   "requirements": ["aiohttp>=3.8.0"],
-  "version": "2.7.0"
+  "version": "2.8.0"
 }

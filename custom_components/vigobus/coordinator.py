@@ -3,30 +3,36 @@ import logging
 from datetime import timedelta
 
 from aiohttp import ClientError
-
 from homeassistant.components import persistent_notification
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.util import dt as dt_util
-from homeassistant.util import slugify
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
+from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 
 from .api import VigoBusApi
 from .const import (
     DEFAULT_ALERTS_LANG,
     DEFAULT_ALERTS_MAX_PER_STOP,
     DEFAULT_AUTO_NEAREST_DEVICES,
+    DEFAULT_NEAREST_RECALC_DISTANCE_M,
     DEFAULT_NOTIFY_COOLDOWN_MIN,
     DEFAULT_NOTIFY_ENABLED,
     DEFAULT_NOTIFY_MINUTES,
-    DEFAULT_NEAREST_RECALC_DISTANCE_M,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
 
-
 _LOGGER = logging.getLogger(__name__)
+
+# After this many consecutive failures, start backing off from the
+# configured scan_interval instead of retrying at full speed against a
+# backend that's clearly down — being a better citizen toward a public API
+# with no authentication/rate-limit contract, and reducing pointless "stale"
+# churn during an outage.
+BACKOFF_START_AFTER_FAILURES = 3
+BACKOFF_MAX_SECONDS = 600
 
 
 class VigoBusCoordinator(DataUpdateCoordinator):
@@ -61,12 +67,13 @@ class VigoBusCoordinator(DataUpdateCoordinator):
                 entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL),
             )
         )
+        self._base_update_interval = timedelta(seconds=scan_interval)
 
         super().__init__(
             hass,
             logger=_LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=scan_interval),
+            update_interval=self._base_update_interval,
         )
 
     def _entry_value(self, key, default=None):
@@ -402,6 +409,7 @@ class VigoBusCoordinator(DataUpdateCoordinator):
 
             self._last_success_at = updated_at
             self._consecutive_failures = 0
+            self.update_interval = self._base_update_interval
             for key, value in results.items():
                 if key == "nearest" or key.startswith("nearest_"):
                     await self._maybe_send_notification(key, value)
@@ -411,9 +419,28 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             _LOGGER.warning("Network error updating VigoBus data: %s", err)
             self._consecutive_failures += 1
             self._last_error_at = dt_util.utcnow().isoformat()
+            self._apply_backoff()
             return self._mark_results_stale(self.data or {}, "network")
         except Exception:
             _LOGGER.exception("Unexpected error updating VigoBus data")
             self._consecutive_failures += 1
             self._last_error_at = dt_util.utcnow().isoformat()
+            self._apply_backoff()
             return self._mark_results_stale(self.data or {}, "unexpected")
+
+    def _apply_backoff(self):
+        """Slow down polling after repeated failures, reset on success.
+
+        Retrying at the full configured rate against a backend that's
+        clearly unreachable just adds load for no benefit. Doubles the
+        interval starting at BACKOFF_START_AFTER_FAILURES consecutive
+        failures, capped at BACKOFF_MAX_SECONDS; a single success (in
+        _async_update_data's success path) resets it immediately.
+        """
+        if self._consecutive_failures < BACKOFF_START_AFTER_FAILURES:
+            self.update_interval = self._base_update_interval
+            return
+
+        factor = 2 ** (self._consecutive_failures - BACKOFF_START_AFTER_FAILURES + 1)
+        seconds = min(self._base_update_interval.total_seconds() * factor, BACKOFF_MAX_SECONDS)
+        self.update_interval = timedelta(seconds=seconds)
