@@ -1,3 +1,4 @@
+import asyncio
 import math
 import time
 
@@ -15,14 +16,42 @@ _LINE_COLOR_CACHE = {
     "data": {},
 }
 
+# The full stop list rarely changes (new stops are a rare, deliberate event),
+# but it was being re-downloaded on every nearest-stop recalculation and on
+# every call to the stateless nearest_stops service (which the card's "my
+# location" mode polls on its own timer, per viewer). Caching it cuts that
+# traffic down drastically without meaningfully affecting freshness.
+PARADAS_CACHE_TTL_SECONDS = 6 * 60 * 60
+_PARADAS_CACHE = {
+    "expires_at": 0.0,
+    "data": None,
+}
+
+# Alerts change more often than stops or line colors, but not every scan
+# cycle (which can be as frequent as every 15s) — a short cache is enough to
+# avoid hammering the endpoint while staying reasonably fresh. Keyed by lang
+# since get_line_alerts() can be called for more than one language.
+ALERTS_CACHE_TTL_SECONDS = 3 * 60
+_ALERTS_CACHE = {}
+
 
 class VigoBusApi:
     def __init__(self, session: ClientSession):
         self.session = session
 
-    async def get_paradas(self):
+    async def get_paradas(self, force_refresh=False):
+        now = time.monotonic()
+        cached = _PARADAS_CACHE.get("data")
+        expires_at = float(_PARADAS_CACHE.get("expires_at") or 0.0)
+        if not force_refresh and cached is not None and now < expires_at:
+            return cached
+
         async with self.session.get(PARADAS_URL, timeout=15) as resp:
-            return await resp.json()
+            data = await resp.json()
+
+        _PARADAS_CACHE["data"] = data
+        _PARADAS_CACHE["expires_at"] = now + PARADAS_CACHE_TTL_SECONDS
+        return data
 
     async def get_line_colors(self, logger=None):
         now = time.monotonic()
@@ -73,10 +102,19 @@ class VigoBusApi:
         return "TRANSPORTE_AVISOS_ES"
 
     async def get_avisos(self, lang="es"):
+        cache_key = ("avisos", str(lang or "es").lower())
+        cached_entry = _ALERTS_CACHE.get(cache_key)
+        now = time.monotonic()
+        if cached_entry and now < cached_entry[0]:
+            return cached_entry[1]
+
         tipo = self._avisos_tipo_for_lang(lang)
         url = AVISOS_URL.format(tipo)
         async with self.session.get(url, timeout=15) as resp:
-            return await resp.json()
+            data = await resp.json()
+
+        _ALERTS_CACHE[cache_key] = (now + ALERTS_CACHE_TTL_SECONDS, data)
+        return data
 
     def _avisos_lineas_lang_code(self, lang):
         key = str(lang or "es").lower()
@@ -87,9 +125,18 @@ class VigoBusApi:
         return 1
 
     async def get_avisos_lineas(self, lang="es"):
+        cache_key = ("avisos_lineas", str(lang or "es").lower())
+        cached_entry = _ALERTS_CACHE.get(cache_key)
+        now = time.monotonic()
+        if cached_entry and now < cached_entry[0]:
+            return cached_entry[1]
+
         url = AVISOS_LINEAS_URL.format(self._avisos_lineas_lang_code(lang))
         async with self.session.get(url, timeout=15) as resp:
-            return await resp.json()
+            data = await resp.json()
+
+        _ALERTS_CACHE[cache_key] = (now + ALERTS_CACHE_TTL_SECONDS, data)
+        return data
 
     def _extract_items(self, data):
         if isinstance(data, list):
@@ -122,8 +169,9 @@ class VigoBusApi:
         return result
 
     async def get_line_alerts(self, lang="es", logger=None):
-        avisos_data = await self.get_avisos(lang=lang)
-        lineas_data = await self.get_avisos_lineas(lang=lang)
+        avisos_data, lineas_data = await asyncio.gather(
+            self.get_avisos(lang=lang), self.get_avisos_lineas(lang=lang)
+        )
 
         avisos = self._extract_items(avisos_data)
         lineas = self._extract_items(lineas_data)
@@ -291,7 +339,7 @@ class VigoBusApi:
             logger.debug(f"VigoBus: {len(stops)} paradas recibidas para nearest. Home: lat={home_lat}, lon={home_lon}")
 
         nearest = None
-        nearest_distance = 999999
+        nearest_distance = math.inf
         for stop in stops:
             normalized = self._normalize_stop(stop)
             if not normalized:
@@ -377,23 +425,37 @@ class VigoBusApi:
             lat, lon, margin_m=margin_m, max_candidates=max_candidates, logger=logger
         )
         line_filter = self._normalize_line(line) if line else None
-        line_colors = await self.get_line_colors(logger=logger)
 
-        results = []
+        valid_stops = []
+        stop_ids = []
         for stop in candidates:
             # The estimacion endpoint expects the "id" (stop_vitrasa) value,
             # not the municipal "stop_id" — matches coordinator._extract_stop_id.
             stop_id = stop.get("id") or stop.get("stop_id")
             if not stop_id:
                 continue
+            valid_stops.append(stop)
+            stop_ids.append(stop_id)
 
+        async def _safe_estimacion(stop_id):
             try:
-                estimacion = await self.get_estimacion(stop_id)
+                return await self.get_estimacion(stop_id)
             except Exception as err:
                 if logger:
                     logger.warning("VigoBus: fallo al pedir estimacion de %s: %s", stop_id, err)
-                estimacion = {}
+                return {}
 
+        # Independent per-stop requests, so fetch line colors and every
+        # candidate's estimacion concurrently instead of one round trip at a
+        # time — this is the path the card's "my location" mode polls on its
+        # own timer, so latency here is directly user-visible.
+        line_colors, *estimaciones_list = await asyncio.gather(
+            self.get_line_colors(logger=logger),
+            *(_safe_estimacion(stop_id) for stop_id in stop_ids),
+        )
+
+        results = []
+        for stop, stop_id, estimacion in zip(valid_stops, stop_ids, estimaciones_list):
             estimaciones = (estimacion or {}).get("estimaciones", [])
             buses = []
             if isinstance(estimaciones, list):

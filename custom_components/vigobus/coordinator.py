@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import timedelta
 
@@ -340,26 +341,56 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             except Exception:
                 _LOGGER.debug("VigoBus: unable to refresh line colors, keeping previous values")
 
-            for key, name, lat, lon in self._nearest_targets():
-                entry = await self._resolve_nearest_target(
-                    key, name, lat, lon, updated_at, alerts_index
-                )
+            # Each target/extra stop is an independent HTTP round trip, so
+            # resolve them concurrently instead of one at a time — this
+            # matters most with several tracked people/devices, where a
+            # sequential loop meant the scan took proportionally longer for
+            # every device added. return_exceptions=True also means one
+            # flaky target (e.g. a device with a temperamental connection)
+            # no longer blanks out every other stop's data for the cycle.
+            targets = self._nearest_targets()
+            resolved_targets = await asyncio.gather(
+                *(
+                    self._resolve_nearest_target(key, name, lat, lon, updated_at, alerts_index)
+                    for key, name, lat, lon in targets
+                ),
+                return_exceptions=True,
+            )
+            for (key, _name, _lat, _lon), entry in zip(targets, resolved_targets):
+                if isinstance(entry, BaseException):
+                    _LOGGER.warning("VigoBus: fallo al actualizar target %s: %s", key, entry)
+                    continue
                 if entry is not None:
                     results[key] = entry
 
-            for stop in self._entry_value("extra_stops", []):
-                stop_id = stop.get("id")
-                name = stop.get("name")
-                if not stop_id or not name:
-                    continue
+            extra_stops = [
+                stop
+                for stop in self._entry_value("extra_stops", [])
+                if stop.get("id") and stop.get("name")
+            ]
 
-                results[name] = {
+            async def _resolve_extra_stop(stop):
+                data = await self.api.get_estimacion(stop.get("id"))
+                entry = {
                     "stop": stop,
-                    "stop_name": name,
+                    "stop_name": stop.get("name"),
                     "updated_at": updated_at,
-                    "data": await self.api.get_estimacion(stop_id),
+                    "data": data,
                 }
-                self._attach_alerts(results[name], alerts_index)
+                self._attach_alerts(entry, alerts_index)
+                return entry
+
+            resolved_extra_stops = await asyncio.gather(
+                *(_resolve_extra_stop(stop) for stop in extra_stops),
+                return_exceptions=True,
+            )
+            for stop, entry in zip(extra_stops, resolved_extra_stops):
+                if isinstance(entry, BaseException):
+                    _LOGGER.warning(
+                        "VigoBus: fallo al actualizar parada extra %s: %s", stop.get("name"), entry
+                    )
+                    continue
+                results[stop.get("name")] = entry
 
             for key, value in results.items():
                 value["stale"] = False

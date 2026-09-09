@@ -120,3 +120,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_remove_config_entry_device(hass: HomeAssistant, entry: ConfigEntry, device_entry) -> bool:
+    """Allow deleting a VigoBus device (stop) from Settings > Devices.
+
+    Without this hook Home Assistant hides the "Delete" button entirely for
+    any device tied to a live config entry. These devices are safe to delete
+    on request: a stop that's still configured (home nearest, an extra stop,
+    a tracked person/device) is recreated automatically the next time the
+    entry is set up (its unique_id is stable), while one the user removed
+    from the config stays gone for good — either way there's nothing to
+    reconcile here.
+    """
+    return True

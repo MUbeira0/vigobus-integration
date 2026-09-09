@@ -12,7 +12,7 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times 
 
 - Nearest stop sensor based on your home location
 - Per-device nearest stop sensors: pick `person`/`device_tracker` entities in the config menu, or auto-create one for every GPS device (home stop is kept, never removed). Each of these sensors exposes an `is_device_nearest` attribute so dashboards (like the companion card) can reliably tell them apart from the home stop or a manually configured extra stop
-- Every stop (home, extra, or per-device) is grouped as its own Home Assistant device, bundling its 4 sensors (state, line, route, upcoming) together in Settings → Devices & Services instead of a flat sensor list. Existing installs pick this up automatically on the next restart — no reconfiguration needed
+- Every stop (home, extra, or per-device) is grouped as its own Home Assistant device, bundling its 4 sensors (state, line, route, upcoming) together in Settings → Devices & Services instead of a flat sensor list. Existing installs pick this up automatically on the next restart — no reconfiguration needed. A stop's device can be deleted from that page like any other device; if it's still configured (home nearest, an extra stop, a tracked person) it comes back automatically on the next reload, and if you removed it from the config it stays gone
 - Additional configurable stops
 - Arrival estimates with line, route, minutes, and bus distance
 - Optional line filter per stop (nearest or extra) so a sensor only reports arrivals for one bus line
@@ -21,6 +21,7 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times 
 - Support for multiple route variants on the same line
 - Local brand images included (`custom_components/vigobus/brand`) for Home Assistant 2026.3+
 - Lovelace card support through the companion dashboard card repo
+- Stop list, line colors, and alerts are cached in memory (not re-downloaded on every scan cycle) and independent devices/stops are refreshed concurrently, so scans stay fast even with several tracked people or configured stops
 
 ## Installation with HACS
 
