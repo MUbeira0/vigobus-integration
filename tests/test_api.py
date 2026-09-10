@@ -194,13 +194,20 @@ class LineAlertsTests(unittest.IsolatedAsyncioTestCase):
         avisos_payload = {"data": [{"id_publicacion": "p1", "nombre": "Corte de via"}]}
         lineas_payload = {
             "data": [
-                {"id": "p1", "lineas_afectadas": "C1,9B", "fecha_inicio": "2026-01-01", "fecha_fin": "2026-01-02"},
+                {
+                    "id": "p1",
+                    "lineas_afectadas": "C1,9B",
+                    "fecha_inicio": "2026-01-01",
+                    "fecha_fin": "2026-01-02",
+                    "resumen": "Corte por obras en la v&iacute;a.",
+                    "subcategoria": "Información general",
+                },
                 {"id": "p1", "lineas_afectadas": "C1", "fecha_inicio": "2026-01-01", "fecha_fin": "2026-01-02"},
             ]
         }
         session = _FakeSession({
             api_mod.AVISOS_URL.format("TRANSPORTE_AVISOS_ES"): avisos_payload,
-            api_mod.AVISOS_LINEAS_URL.format(1): lineas_payload,
+            api_mod.AVISOS_LINEAS_URL.format("es"): lineas_payload,
         })
         api = api_mod.VigoBusApi(session)
 
@@ -208,6 +215,8 @@ class LineAlertsTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(alerts["C1"]), 1)
         self.assertEqual(alerts["C1"][0]["title"], "Corte de via")
+        self.assertEqual(alerts["C1"][0]["description"], "Corte por obras en la vía.")
+        self.assertEqual(alerts["C1"][0]["category"], "Información general")
         self.assertEqual(len(alerts["9B"]), 1)
 
 

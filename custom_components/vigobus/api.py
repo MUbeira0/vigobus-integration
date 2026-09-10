@@ -118,12 +118,15 @@ class VigoBusApi:
         return data
 
     def _avisos_lineas_lang_code(self, lang):
+        # The numeric codes this endpoint also accepts (1/2/3) return a
+        # stripped-down payload with no titulo/resumen/subcategoria at all —
+        # only the "es"/"gl"/"en" language string gets the full one back.
         key = str(lang or "es").lower()
         if key.startswith("gl"):
-            return 2
+            return "gl"
         if key.startswith("en"):
-            return 3
-        return 1
+            return "en"
+        return "es"
 
     async def get_avisos_lineas(self, lang="es"):
         cache_key = ("avisos_lineas", str(lang or "es").lower())
