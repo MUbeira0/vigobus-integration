@@ -16,9 +16,10 @@
           "notify_minutes": "Alert threshold (minutes)",
           "notify_cooldown_min": "Alert cooldown (minutes)",
           "alerts_lang": "Alerts language (es/gl)",
-          "alerts_max_per_stop": "Max alerts per stop"
+          "alerts_max_per_stop": "Max alerts per stop",
+          "notify_new_alerts_enabled": "Notify when a new alert appears"
         }
-      }
+}
     }
   },
   "options": {
@@ -63,9 +64,10 @@
         "title": "Alerts",
         "data": {
           "alerts_lang": "Alerts language (es/gl)",
-          "alerts_max_per_stop": "Max alerts per stop"
+          "alerts_max_per_stop": "Max alerts per stop",
+          "notify_new_alerts_enabled": "Notify when a new alert appears"
         }
-      },
+},
       "add_stop_search": {
         "title": "Search stop",
         "description": "Type a stop name or ID and choose one from the list.",

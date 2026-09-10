@@ -69,6 +69,16 @@ class OptionsFlowSectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(flow._draft["alerts_lang"], "gl")
         self.assertEqual(flow._draft["alerts_max_per_stop"], 5)
 
+    async def test_edit_alerts_saves_notify_new_alerts_enabled(self):
+        flow = self._flow()
+        self.assertFalse(flow._draft["notify_new_alerts_enabled"])
+
+        await flow.async_step_edit_alerts(
+            {"alerts_lang": "es", "alerts_max_per_stop": 5, "notify_new_alerts_enabled": True}
+        )
+
+        self.assertTrue(flow._draft["notify_new_alerts_enabled"])
+
     async def test_init_menu_lists_the_split_sections(self):
         flow = self._flow()
         result = await flow.async_step_init()

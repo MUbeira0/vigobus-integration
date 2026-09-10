@@ -40,6 +40,8 @@ DEFAULT_ALERTS_MAX_PER_STOP = 10
 MIN_ALERTS_MAX_PER_STOP = 1
 MAX_ALERTS_MAX_PER_STOP = 25
 
+DEFAULT_NOTIFY_NEW_ALERTS_ENABLED = False
+
 # Defaults for the stateless "nearest_stops" service (SERVICE_NEAREST_STOPS):
 # a one-off lookup keyed on coordinates the caller supplies (typically the
 # viewing device's own live geolocation), not stored anywhere.

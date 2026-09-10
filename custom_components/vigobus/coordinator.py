@@ -20,6 +20,7 @@ from .const import (
     DEFAULT_NOTIFY_COOLDOWN_MIN,
     DEFAULT_NOTIFY_ENABLED,
     DEFAULT_NOTIFY_MINUTES,
+    DEFAULT_NOTIFY_NEW_ALERTS_ENABLED,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
@@ -55,6 +56,14 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         self._last_error_at = None
         self._consecutive_failures = 0
         self._last_notification_at = {}
+        # Snapshot of alert keys seen as of the last cycle, used to detect
+        # newly-appeared alerts. _alerts_baseline_done gates the very first
+        # cycle after (re)creating the coordinator (HA restart, or an options
+        # save which reloads the entry): it just records what's already
+        # active without notifying, so that moment doesn't get reported as a
+        # flood of "new" alerts.
+        self._notified_alert_ids = set()
+        self._alerts_baseline_done = False
         self._nearest_recalc_distance_m = int(
             entry.options.get(
                 "nearest_recalc_distance_m",
@@ -235,6 +244,51 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         )
         self._last_notification_at[stop_key] = now
 
+    def _maybe_notify_new_alerts(self, results):
+        if not bool(
+            self._entry_value("notify_new_alerts_enabled", DEFAULT_NOTIFY_NEW_ALERTS_ENABLED)
+        ):
+            return
+
+        current = {}
+        for value in results.values():
+            for alert in value.get("alerts", []) or []:
+                key = (
+                    alert.get("id_publicacion"),
+                    alert.get("title"),
+                    alert.get("inicio"),
+                    alert.get("fin"),
+                )
+                current[key] = alert
+
+        if not self._alerts_baseline_done:
+            self._notified_alert_ids = set(current.keys())
+            self._alerts_baseline_done = True
+            return
+
+        new_alerts = [alert for key, alert in current.items() if key not in self._notified_alert_ids]
+        self._notified_alert_ids = set(current.keys())
+        if not new_alerts:
+            return
+
+        if len(new_alerts) == 1:
+            alert = new_alerts[0]
+            title = "VigoBus: nuevo aviso"
+            message = f"{alert.get('title') or 'Aviso'} ({alert.get('lineas') or '-'})"
+        else:
+            title = f"VigoBus: {len(new_alerts)} avisos nuevos"
+            message = "\n".join(
+                f"- {alert.get('title') or 'Aviso'} ({alert.get('lineas') or '-'})"
+                for alert in new_alerts
+            )
+
+        persistent_notification.async_create(
+            self.hass,
+            message,
+            title=title,
+            notification_id=f"vigobus_new_alerts_{self.entry.entry_id}",
+        )
+
     def _mark_results_stale(self, previous, reason):
         if not isinstance(previous, dict):
             return {}
@@ -413,6 +467,7 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             for key, value in results.items():
                 if key == "nearest" or key.startswith("nearest_"):
                     await self._maybe_send_notification(key, value)
+            self._maybe_notify_new_alerts(results)
 
             return results
         except (TimeoutError, ClientError) as err:

@@ -15,6 +15,7 @@ from .const import (
     DEFAULT_NOTIFY_COOLDOWN_MIN,
     DEFAULT_NOTIFY_ENABLED,
     DEFAULT_NOTIFY_MINUTES,
+    DEFAULT_NOTIFY_NEW_ALERTS_ENABLED,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     MAX_ALERTS_MAX_PER_STOP,
@@ -303,6 +304,9 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "alerts_max_per_stop": int(
                         user_input.get("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP)
                     ),
+                    "notify_new_alerts_enabled": bool(
+                        user_input.get("notify_new_alerts_enabled", DEFAULT_NOTIFY_NEW_ALERTS_ENABLED)
+                    ),
                 },
             )
 
@@ -348,6 +352,9 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Coerce(int),
                     vol.Range(min=MIN_ALERTS_MAX_PER_STOP, max=MAX_ALERTS_MAX_PER_STOP),
                 ),
+                vol.Optional(
+                    "notify_new_alerts_enabled", default=DEFAULT_NOTIFY_NEW_ALERTS_ENABLED
+                ): bool,
             }
         )
 
@@ -402,6 +409,9 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             "alerts_lang": str(self._entry_value("alerts_lang", DEFAULT_ALERTS_LANG)),
             "alerts_max_per_stop": int(
                 self._entry_value("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP)
+            ),
+            "notify_new_alerts_enabled": bool(
+                self._entry_value("notify_new_alerts_enabled", DEFAULT_NOTIFY_NEW_ALERTS_ENABLED)
             ),
         }
 
@@ -529,6 +539,11 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                     "alerts_max_per_stop": int(
                         user_input.get("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP)
                     ),
+                    "notify_new_alerts_enabled": bool(
+                        user_input.get(
+                            "notify_new_alerts_enabled", DEFAULT_NOTIFY_NEW_ALERTS_ENABLED
+                        )
+                    ),
                 }
             )
             return await self.async_step_init()
@@ -545,6 +560,10 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                     vol.Coerce(int),
                     vol.Range(min=MIN_ALERTS_MAX_PER_STOP, max=MAX_ALERTS_MAX_PER_STOP),
                 ),
+                vol.Optional(
+                    "notify_new_alerts_enabled",
+                    default=self._draft["notify_new_alerts_enabled"],
+                ): bool,
             }
         )
 

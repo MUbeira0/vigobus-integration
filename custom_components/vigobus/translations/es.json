@@ -16,9 +16,10 @@
           "notify_minutes": "Umbral de alerta (minutos)",
           "notify_cooldown_min": "Espera entre alertas (minutos)",
           "alerts_lang": "Idioma de avisos (es/gl)",
-          "alerts_max_per_stop": "Máximo de avisos por parada"
+          "alerts_max_per_stop": "Máximo de avisos por parada",
+          "notify_new_alerts_enabled": "Notificar cuando aparezca un aviso nuevo"
         }
-      }
+}
     }
   },
   "options": {
@@ -63,9 +64,10 @@
         "title": "Avisos",
         "data": {
           "alerts_lang": "Idioma de avisos (es/gl)",
-          "alerts_max_per_stop": "Máximo de avisos por parada"
+          "alerts_max_per_stop": "Máximo de avisos por parada",
+          "notify_new_alerts_enabled": "Notificar cuando aparezca un aviso nuevo"
         }
-      },
+},
       "add_stop_search": {
         "title": "Buscar parada",
         "description": "Escribe nombre o ID de parada y elige una opción de la lista.",
