@@ -5,6 +5,7 @@ from unittest.mock import patch
 import conftest  # noqa: F401  (installs Home Assistant stubs on import)
 
 config_flow = importlib.import_module("custom_components.vigobus.config_flow")
+stop_catalog = importlib.import_module("custom_components.vigobus.stop_catalog")
 
 
 class ConfigFlowStopSearchTests(unittest.IsolatedAsyncioTestCase):
@@ -19,7 +20,7 @@ class ConfigFlowStopSearchTests(unittest.IsolatedAsyncioTestCase):
             "nombre": "Praza de America 1",
         }
 
-        out = config_flow._extract_catalog_stop(stop)
+        out = stop_catalog._extract_catalog_stop(stop)
 
         self.assertIsNotNone(out)
         self.assertEqual(out["id"], "6930")
@@ -102,7 +103,7 @@ class ConfigFlowStopSearchTests(unittest.IsolatedAsyncioTestCase):
             def _extract_stops(self, data):
                 return data
 
-        with patch.object(config_flow, "VigoBusApi", FakeApi):
+        with patch.object(stop_catalog, "VigoBusApi", FakeApi):
             first = await config_flow._get_catalog_stops(object(), force_refresh=False)
             second = await config_flow._get_catalog_stops(object(), force_refresh=False)
 

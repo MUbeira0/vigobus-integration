@@ -347,3 +347,22 @@ async def get_gtfs_index(session, logger=None, force=False):
         _GTFS_CACHE["data"] = index
         _GTFS_CACHE["expires_at"] = now + GTFS_CACHE_TTL_SECONDS
         return index
+
+
+def cache_status():
+    """A JSON-safe snapshot of the in-memory GTFS cache, for diagnostics.
+
+    Doesn't touch the network — just reports whatever's already cached (or
+    that nothing has been loaded yet), so it's safe to call from the
+    diagnostics download at any time.
+    """
+    index = _GTFS_CACHE.get("data")
+    if index is None:
+        return {"loaded": False}
+
+    expires_at = _GTFS_CACHE.get("expires_at") or 0.0
+    return {
+        "loaded": True,
+        "expires_in_seconds": max(0, round(expires_at - time.monotonic())),
+        "counts": index.get("counts"),
+    }

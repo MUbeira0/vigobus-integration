@@ -88,3 +88,8 @@ TRIP_TRANSFER_MIN_SECONDS = 90
 DEFAULT_STOP_SEARCH_LIMIT = 8
 MIN_STOP_SEARCH_LIMIT = 1
 MAX_STOP_SEARCH_LIMIT = 25
+
+# get_estimacion() only ever knows "the next few buses at one stop right
+# now" — cross-checking a planned leg's live arrival only makes sense when
+# its scheduled departure is still within that near-term horizon.
+LIVE_CHECK_HORIZON_SECONDS = 45 * 60

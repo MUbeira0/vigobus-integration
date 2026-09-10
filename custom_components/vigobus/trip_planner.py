@@ -253,6 +253,12 @@ def _reconstruct(index, labels, max_round, best_stop, dest_walk, depart_seconds)
                 "to_stop": _stop_ref(index, alight_stop),
                 "depart": _format_clock(depart_t),
                 "arrive": _format_clock(arrive_t),
+                # Raw (possibly >86400, GTFS after-midnight convention)
+                # seconds-since-midnight-of-the-service-day, alongside the
+                # display strings above — callers comparing against "now"
+                # need these instead of re-parsing the wrapped clock string.
+                "depart_seconds": depart_t,
+                "arrive_seconds": arrive_t,
                 "duration_min": round((arrive_t - depart_t) / 60, 1),
                 "num_stops": alight_idx - board_idx,
             }

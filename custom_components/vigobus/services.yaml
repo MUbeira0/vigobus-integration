@@ -62,3 +62,116 @@ nearest_stops:
       name: Language
       description: Language for each stop's line alerts ("es", "gl" or "en"). Defaults to "es".
       example: "es"
+
+search_stops:
+  name: Search stops
+  description: >
+    Stateless lookup: returns stops matching a name or id substring, ranked
+    best match first. Intended for a dashboard card's destination search when
+    planning a trip (see plan_trip) — a stop found here can be passed
+    straight into plan_trip's origin_stop_id/destination_stop_id.
+  fields:
+    query:
+      name: Query
+      description: Stop name or id to search for (e.g. "urzaiz" or "3493").
+      required: true
+      example: "urzaiz"
+    limit:
+      name: Limit
+      description: Maximum number of matching stops to return.
+      example: 8
+      selector:
+        number:
+          min: 1
+          max: 25
+
+plan_trip:
+  name: Plan a trip
+  description: >
+    Stateless lookup: plans a bus trip (with transfers) from an origin to a
+    destination using Vigo's official static GTFS schedule for Vitrasa, and
+    returns a single best itinerary as a list of walk/bus legs with clock
+    times. Each end can be given either as coordinates (the closest stops
+    within max_walk_m are considered) or as an exact stop_id from
+    search_stops/nearest_stops. Known limitations: destination must be a
+    stop, not a free-text address; only the itinerary's first bus leg is
+    cross-checked against live arrival data, everything after that is
+    timetable-only; a query very late at night (after midnight) may miss a
+    trip that started the previous service day.
+  fields:
+    origin_latitude:
+      name: Origin latitude
+      description: Origin latitude. Omit if origin_stop_id is given instead.
+      example: 42.2328
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: any
+    origin_longitude:
+      name: Origin longitude
+      description: Origin longitude. Omit if origin_stop_id is given instead.
+      example: -8.7226
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: any
+    origin_stop_id:
+      name: Origin stop id
+      description: An exact GTFS stop id to start from (from search_stops' "stop_id"). Omit if using coordinates instead.
+      example: "3493"
+    destination_latitude:
+      name: Destination latitude
+      description: Destination latitude. Omit if destination_stop_id is given instead.
+      example: 42.2137
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: any
+    destination_longitude:
+      name: Destination longitude
+      description: Destination longitude. Omit if destination_stop_id is given instead.
+      example: -8.7744
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: any
+    destination_stop_id:
+      name: Destination stop id
+      description: An exact GTFS stop id to arrive at (from search_stops' "stop_id"). Omit if using coordinates instead.
+      example: "5557"
+    depart_at:
+      name: Depart at
+      description: Departure time as "HH:MM", same day. Leave empty to depart now.
+      example: "18:00"
+    max_transfers:
+      name: Max transfers
+      description: Maximum number of line changes to consider.
+      example: 2
+      selector:
+        number:
+          min: 0
+          max: 2
+    max_walk_m:
+      name: Max walk (meters)
+      description: How far to walk to/from a stop at each end when given coordinates.
+      example: 800
+      selector:
+        number:
+          min: 100
+          max: 2000
+    max_itineraries:
+      name: Max itineraries
+      description: Reserved for a future multi-option version; v1 always returns at most one itinerary.
+      example: 3
+      selector:
+        number:
+          min: 1
+          max: 5
+    include_live:
+      name: Include live data
+      description: Cross-check the first bus leg against live arrival data when its departure is soon. Defaults to true.
+      example: true

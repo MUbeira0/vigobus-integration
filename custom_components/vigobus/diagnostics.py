@@ -9,6 +9,7 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
+from . import gtfs
 from .const import DOMAIN
 
 # Coordinates and custom names can identify where someone lives; entity ids
@@ -57,4 +58,9 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
             "update_interval_seconds": update_interval.total_seconds() if update_interval else None,
             "stops": stops,
         },
+        # The trip planner's GTFS feed is public open data (no redaction
+        # needed) and shared across every config entry, not per-entry state
+        # — reported here anyway since this is the one diagnostics surface
+        # users already know to reach for when something looks wrong.
+        "gtfs": gtfs.cache_status(),
     }

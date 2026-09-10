@@ -211,7 +211,17 @@ def install_stubs():
         import datetime as _datetime
 
         dt_mod.utcnow = lambda: _datetime.datetime.now(_datetime.timezone.utc)
+        dt_mod.now = lambda: _datetime.datetime.now()
         util.dt = _register("homeassistant.util.dt", dt_mod)
+
+        # homeassistant.exceptions
+        exceptions_mod = types.ModuleType("homeassistant.exceptions")
+
+        class ServiceValidationError(Exception):
+            pass
+
+        exceptions_mod.ServiceValidationError = ServiceValidationError
+        ha.exceptions = _register("homeassistant.exceptions", exceptions_mod)
 
 
 install_stubs()
