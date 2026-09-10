@@ -61,6 +61,59 @@ class OptionsFlowSectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(flow._draft["notify_cooldown_min"], 10)
         self.assertEqual(flow._draft["auto_nearest"], before_location)
 
+    async def test_edit_notifications_saves_notify_targets(self):
+        flow = self._flow()
+        self.assertEqual(flow._draft["notify_targets"], [])
+
+        await flow.async_step_edit_notifications(
+            {
+                "notify_enabled": True,
+                "notify_minutes": 3,
+                "notify_cooldown_min": 10,
+                "notify_targets": ["mobile_app_my_phone", "notify.my_phone"],
+            }
+        )
+
+        self.assertEqual(flow._draft["notify_targets"], ["mobile_app_my_phone", "notify.my_phone"])
+
+    async def test_edit_notifications_render_does_not_crash_with_no_hass(self):
+        # flow.hass isn't set at all until Home Assistant attaches this flow;
+        # rendering the form (no user_input) builds the notify_targets
+        # selector's option list from it, so this must degrade to an empty
+        # list instead of raising.
+        flow = self._flow()
+        self.assertFalse(hasattr(flow, "hass"))
+
+        await flow.async_step_edit_notifications(None)
+
+    async def test_available_notify_targets_combines_services_and_entities(self):
+        flow = self._flow()
+
+        class _FakeServices:
+            def async_services(self):
+                return {"notify": {"mobile_app_my_phone": object(), "persistent_notification": object()}}
+
+        class _FakeState:
+            def __init__(self, entity_id):
+                self.entity_id = entity_id
+
+        class _FakeStates:
+            def async_all(self, domain):
+                return [_FakeState("notify.my_phone")]
+
+        class _FakeHass:
+            services = _FakeServices()
+            states = _FakeStates()
+
+        flow.hass = _FakeHass()
+
+        targets = flow._available_notify_targets()
+
+        # "persistent_notification" is filtered out: it's already covered by
+        # the always-on persistent notification, offering it again as a
+        # notify target would be a confusing duplicate.
+        self.assertEqual(targets, ["mobile_app_my_phone", "notify.my_phone"])
+
     async def test_edit_alerts_only_touches_its_own_keys(self):
         flow = self._flow()
 

@@ -57,7 +57,11 @@
         "data": {
           "notify_enabled": "Activar alertas automáticas",
           "notify_minutes": "Umbral de alerta (minutos)",
-          "notify_cooldown_min": "Espera entre alertas (minutos)"
+          "notify_cooldown_min": "Espera entre alertas (minutos)",
+          "notify_targets": "Enviar también notificaciones a (opcional)"
+        },
+        "data_description": {
+          "notify_targets": "Elige uno o varios servicios/dispositivos de notificación (p. ej. el mobile_app de tu móvil) para recibir también estos avisos ahí, además del panel de notificaciones de Home Assistant. Déjalo vacío para usar solo el panel de notificaciones."
         }
       },
       "edit_alerts": {

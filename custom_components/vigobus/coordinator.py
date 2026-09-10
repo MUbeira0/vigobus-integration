@@ -214,6 +214,47 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             return None
         return min(values)
 
+    async def _dispatch_notification(self, title, message, notification_id):
+        """Create the persistent notification, then mirror it to any of the
+        user's chosen notify targets (e.g. a phone's mobile_app), if set.
+
+        Targets come from the "notify_targets" option (Configure ->
+        Notifications), populated from whatever notify services/entities
+        this Home Assistant instance actually has registered. A target
+        containing a "." is a notify *entity* (HA 2024.7+, sent via
+        notify.send_message); anything else is a legacy notify.<service>
+        name (e.g. mobile_app_my_phone) \u2014 both forms coexist across HA
+        versions, so both are supported.
+        """
+        persistent_notification.async_create(
+            self.hass,
+            message,
+            title=title,
+            notification_id=notification_id,
+        )
+
+        for target in list(self._entry_value("notify_targets", []) or []):
+            target = str(target or "").strip()
+            if not target:
+                continue
+            try:
+                if "." in target:
+                    await self.hass.services.async_call(
+                        "notify",
+                        "send_message",
+                        {"entity_id": target, "title": title, "message": message},
+                        blocking=False,
+                    )
+                else:
+                    await self.hass.services.async_call(
+                        "notify",
+                        target,
+                        {"title": title, "message": message},
+                        blocking=False,
+                    )
+            except Exception as err:
+                _LOGGER.warning("VigoBus: fallo al notificar a %s: %s", target, err)
+
     async def _maybe_send_notification(self, stop_key, result):
         if not bool(self._entry_value("notify_enabled", DEFAULT_NOTIFY_ENABLED)):
             return
@@ -235,16 +276,12 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         stop_name = (result or {}).get("stop_name") or stop_key
         title = "VigoBus aviso"
         message = f"{stop_name}: pr\u00f3ximo bus en {minutes} min (umbral {threshold} min)."
-        notification_id = f"vigobus_alert_{self.entry.entry_id}_{stop_key}"
-        persistent_notification.async_create(
-            self.hass,
-            message,
-            title=title,
-            notification_id=notification_id,
+        await self._dispatch_notification(
+            title, message, f"vigobus_alert_{self.entry.entry_id}_{stop_key}"
         )
         self._last_notification_at[stop_key] = now
 
-    def _maybe_notify_new_alerts(self, results):
+    async def _maybe_notify_new_alerts(self, results):
         if not bool(
             self._entry_value("notify_new_alerts_enabled", DEFAULT_NOTIFY_NEW_ALERTS_ENABLED)
         ):
@@ -282,11 +319,8 @@ class VigoBusCoordinator(DataUpdateCoordinator):
                 for alert in new_alerts
             )
 
-        persistent_notification.async_create(
-            self.hass,
-            message,
-            title=title,
-            notification_id=f"vigobus_new_alerts_{self.entry.entry_id}",
+        await self._dispatch_notification(
+            title, message, f"vigobus_new_alerts_{self.entry.entry_id}"
         )
 
     def _mark_results_stale(self, previous, reason):
@@ -467,7 +501,7 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             for key, value in results.items():
                 if key == "nearest" or key.startswith("nearest_"):
                     await self._maybe_send_notification(key, value)
-            self._maybe_notify_new_alerts(results)
+            await self._maybe_notify_new_alerts(results)
 
             return results
         except (TimeoutError, ClientError) as err:

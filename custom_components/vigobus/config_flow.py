@@ -406,6 +406,7 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             "notify_cooldown_min": int(
                 self._entry_value("notify_cooldown_min", DEFAULT_NOTIFY_COOLDOWN_MIN)
             ),
+            "notify_targets": list(self._entry_value("notify_targets", []) or []),
             "alerts_lang": str(self._entry_value("alerts_lang", DEFAULT_ALERTS_LANG)),
             "alerts_max_per_stop": int(
                 self._entry_value("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP)
@@ -421,6 +422,41 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
 
         self._catalog = await _get_catalog_stops(self.hass)
         return self._catalog
+
+    def _available_notify_targets(self):
+        """Notify services/entities this HA instance actually has registered.
+
+        Both forms coexist across HA versions: legacy per-platform
+        "notify.<service>" services (e.g. mobile_app_my_phone) and, since HA
+        2024.7, notify *entities* (e.g. notify.my_phone) sent through
+        notify.send_message. Offered together since either can be the right
+        one depending on how the user's mobile_app was set up.
+        """
+        targets = set()
+
+        # self.hass isn't set until Home Assistant attaches this flow (and
+        # never gets set at all in some test/stub contexts), so guard the
+        # attribute access itself, not just its "services"/"states" members.
+        hass = getattr(self, "hass", None)
+
+        services = getattr(hass, "services", None)
+        if services is not None:
+            try:
+                for name in (services.async_services() or {}).get("notify", {}):
+                    if name not in ("notify", "persistent_notification"):
+                        targets.add(name)
+            except Exception:
+                pass
+
+        states = getattr(hass, "states", None)
+        if states is not None:
+            try:
+                for state in states.async_all("notify"):
+                    targets.add(state.entity_id)
+            except Exception:
+                pass
+
+        return sorted(targets)
 
     async def async_step_init(self, user_input=None):
         self._ensure_draft()
@@ -506,6 +542,7 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                     "notify_cooldown_min": int(
                         user_input.get("notify_cooldown_min", DEFAULT_NOTIFY_COOLDOWN_MIN)
                     ),
+                    "notify_targets": list(user_input.get("notify_targets", []) or []),
                 }
             )
             return await self.async_step_init()
@@ -523,6 +560,18 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                 ): vol.All(
                     vol.Coerce(int),
                     vol.Range(min=MIN_NOTIFY_COOLDOWN_MIN, max=MAX_NOTIFY_COOLDOWN_MIN),
+                ),
+                vol.Optional(
+                    "notify_targets", default=self._draft["notify_targets"]
+                ): selector(
+                    {
+                        "select": {
+                            "options": self._available_notify_targets(),
+                            "multiple": True,
+                            "custom_value": True,
+                            "mode": "dropdown",
+                        }
+                    }
                 ),
             }
         )

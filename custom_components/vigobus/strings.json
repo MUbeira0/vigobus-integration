@@ -57,7 +57,11 @@
         "data": {
           "notify_enabled": "Enable automatic alerts",
           "notify_minutes": "Alert threshold (minutes)",
-          "notify_cooldown_min": "Alert cooldown (minutes)"
+          "notify_cooldown_min": "Alert cooldown (minutes)",
+          "notify_targets": "Also send notifications to (optional)"
+        },
+        "data_description": {
+          "notify_targets": "Pick one or more notify services/devices (e.g. your phone's mobile_app) to also receive these notifications on, in addition to the Home Assistant notifications panel. Leave empty to only use the notifications panel."
         }
       },
       "edit_alerts": {
