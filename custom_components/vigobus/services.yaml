@@ -11,11 +11,12 @@ nearest_stops:
   name: Nearest stops
   description: >
     Stateless lookup: returns the closest stop(s) to the given coordinates,
-    each with its upcoming buses. Intended for dashboard cards that read the
-    viewing device's own live geolocation and pass it in on every call, so
-    the result reflects whoever is looking at the dashboard right now
-    instead of a fixed home or tracker location. Returns several candidates
-    when more than one stop is within tie_margin_m of the closest one.
+    each with its upcoming buses and any active line alerts. Intended for
+    dashboard cards that read the viewing device's own live geolocation and
+    pass it in on every call, so the result reflects whoever is looking at
+    the dashboard right now instead of a fixed home or tracker location.
+    Returns several candidates when more than one stop is within
+    tie_margin_m of the closest one.
   fields:
     latitude:
       name: Latitude
@@ -57,3 +58,7 @@ nearest_stops:
       name: Line
       description: Only return buses for this line (e.g. "C1"). Leave empty for all lines.
       example: "C1"
+    lang:
+      name: Language
+      description: Language for each stop's line alerts ("es", "gl" or "en"). Defaults to "es".
+      example: "es"

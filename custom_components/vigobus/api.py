@@ -5,7 +5,14 @@ import time
 
 from aiohttp import ClientSession
 
-from .const import AVISOS_LINEAS_URL, AVISOS_URL, ESTIMACION_URL, LINE_COLORS_URL, PARADAS_URL
+from .const import (
+    AVISOS_LINEAS_URL,
+    AVISOS_URL,
+    DEFAULT_ALERTS_MAX_PER_STOP,
+    ESTIMACION_URL,
+    LINE_COLORS_URL,
+    PARADAS_URL,
+)
 
 # Vigo's own open-data line-geometry file carries an official color per line
 # (used on their own maps), so we mirror it instead of inventing one. Colors
@@ -418,7 +425,15 @@ class VigoBusApi:
         return candidates
 
     async def get_nearest_stops_with_eta(
-        self, lat, lon, margin_m=60, max_candidates=3, line=None, logger=None
+        self,
+        lat,
+        lon,
+        margin_m=60,
+        max_candidates=3,
+        line=None,
+        lang="es",
+        alerts_max=DEFAULT_ALERTS_MAX_PER_STOP,
+        logger=None,
     ):
         """Nearest candidate stops plus their upcoming buses, for a one-off lookup.
 
@@ -451,12 +466,13 @@ class VigoBusApi:
                     logger.warning("VigoBus: fallo al pedir estimacion de %s: %s", stop_id, err)
                 return {}
 
-        # Independent per-stop requests, so fetch line colors and every
-        # candidate's estimacion concurrently instead of one round trip at a
-        # time — this is the path the card's "my location" mode polls on its
-        # own timer, so latency here is directly user-visible.
-        line_colors, *estimaciones_list = await asyncio.gather(
+        # Independent per-stop requests, so fetch line colors, line alerts and
+        # every candidate's estimacion concurrently instead of one round trip
+        # at a time — this is the path the card's "my location" mode polls on
+        # its own timer, so latency here is directly user-visible.
+        line_colors, alerts_by_line, *estimaciones_list = await asyncio.gather(
             self.get_line_colors(logger=logger),
+            self.get_line_alerts(lang=lang, logger=logger),
             *(_safe_estimacion(stop_id) for stop_id in stop_ids),
         )
 
@@ -485,6 +501,28 @@ class VigoBusApi:
                     )
             buses.sort(key=lambda item: item["minutos"])
 
+            stop_lines = sorted({
+                self._normalize_line(bus["linea"]) for bus in buses if bus.get("linea")
+            })
+            alerts = []
+            seen = set()
+            for stop_line in stop_lines:
+                for alert in alerts_by_line.get(stop_line, []):
+                    signature = (
+                        alert.get("id_publicacion"),
+                        alert.get("title"),
+                        alert.get("inicio"),
+                        alert.get("fin"),
+                    )
+                    if signature in seen:
+                        continue
+                    seen.add(signature)
+                    alerts.append(alert)
+                    if len(alerts) >= alerts_max:
+                        break
+                if len(alerts) >= alerts_max:
+                    break
+
             results.append(
                 {
                     "id": stop_id,
@@ -492,6 +530,7 @@ class VigoBusApi:
                     "distance_m": round(stop.get("_distance_m", 0), 1),
                     "buses": buses,
                     "next_minutes": buses[0]["minutos"] if buses else None,
+                    "alerts": alerts,
                 }
             )
 

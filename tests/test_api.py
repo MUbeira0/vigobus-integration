@@ -150,6 +150,8 @@ class NearestStopTests(unittest.IsolatedAsyncioTestCase):
         session = _FakeSession({
             api_mod.PARADAS_URL: stops,
             api_mod.LINE_COLORS_URL: {"features": []},
+            api_mod.AVISOS_URL.format("TRANSPORTE_AVISOS_ES"): {"data": []},
+            api_mod.AVISOS_LINEAS_URL.format("es"): {"data": []},
             api_mod.ESTIMACION_URL.format("vitrasa-1"): {
                 "estimaciones": [{"linea": "C1", "ruta": "Centro", "minutos": "5", "metros": 300}]
             },
@@ -171,6 +173,8 @@ class NearestStopTests(unittest.IsolatedAsyncioTestCase):
         session = _FakeSession({
             api_mod.PARADAS_URL: stops,
             api_mod.LINE_COLORS_URL: {"features": []},
+            api_mod.AVISOS_URL.format("TRANSPORTE_AVISOS_ES"): {"data": []},
+            api_mod.AVISOS_LINEAS_URL.format("es"): {"data": []},
             api_mod.ESTIMACION_URL.format("s1"): {
                 "estimaciones": [
                     {"linea": "C1", "ruta": "Centro", "minutos": "5", "metros": 300},
@@ -184,6 +188,43 @@ class NearestStopTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(results[0]["buses"]), 1)
         self.assertEqual(results[0]["buses"][0]["linea"], "9B")
+
+    async def test_get_nearest_stops_with_eta_attaches_alerts_for_stop_lines(self):
+        stops = [
+            {"id": "s1", "nombre": "Stop A", "latitud": 42.0, "longitud": -8.0}
+        ]
+        session = _FakeSession({
+            api_mod.PARADAS_URL: stops,
+            api_mod.LINE_COLORS_URL: {"features": []},
+            api_mod.AVISOS_URL.format("TRANSPORTE_AVISOS_ES"): {"data": []},
+            api_mod.AVISOS_LINEAS_URL.format("es"): {
+                "data": [
+                    {
+                        "id": "p1",
+                        "lineas_afectadas": "C1",
+                        "titulo": "Corte C1",
+                        "fecha_inicio": "2026-01-01",
+                        "fecha_fin": "2026-01-02",
+                    },
+                    {
+                        "id": "p2",
+                        "lineas_afectadas": "ZZZ",
+                        "titulo": "Corte otra linea",
+                        "fecha_inicio": "2026-01-01",
+                        "fecha_fin": "2026-01-02",
+                    },
+                ]
+            },
+            api_mod.ESTIMACION_URL.format("s1"): {
+                "estimaciones": [{"linea": "C1", "ruta": "Centro", "minutos": "5", "metros": 300}]
+            },
+        })
+        api = api_mod.VigoBusApi(session)
+
+        results = await api.get_nearest_stops_with_eta(42.0, -8.0)
+
+        self.assertEqual(len(results[0]["alerts"]), 1)
+        self.assertEqual(results[0]["alerts"][0]["title"], "Corte C1")
 
 
 class LineAlertsTests(unittest.IsolatedAsyncioTestCase):

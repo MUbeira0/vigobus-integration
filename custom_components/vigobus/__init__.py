@@ -7,6 +7,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import VigoBusApi
 from .const import (
+    DEFAULT_ALERTS_LANG,
     DEFAULT_DEVICE_NEAREST_MAX_CANDIDATES,
     DEFAULT_DEVICE_NEAREST_TIE_MARGIN_M,
     DOMAIN,
@@ -64,6 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     "max_candidates", DEFAULT_DEVICE_NEAREST_MAX_CANDIDATES
                 ),
                 line=call.data.get("line") or None,
+                lang=call.data.get("lang") or DEFAULT_ALERTS_LANG,
             )
             return {"candidates": candidates}
 
@@ -90,6 +92,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                         ),
                     ),
                     vol.Optional("line"): str,
+                    vol.Optional("lang"): str,
                 }
             ),
             supports_response=SupportsResponse.ONLY,
