@@ -43,6 +43,23 @@ ALERTS_CACHE_TTL_SECONDS = 3 * 60
 _ALERTS_CACHE = {}
 
 
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371000
+
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    )
+
+    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
 class VigoBusApi:
     def __init__(self, session: ClientSession):
         self.session = session
@@ -328,22 +345,7 @@ class VigoBusApi:
         return normalized
 
     def haversine(self, lat1, lon1, lat2, lon2):
-        R = 6371000
-
-        phi1 = math.radians(lat1)
-        phi2 = math.radians(lat2)
-
-        dphi = math.radians(lat2 - lat1)
-        dlambda = math.radians(lon2 - lon1)
-
-        a = (
-            math.sin(dphi / 2) ** 2
-            + math.cos(phi1)
-            * math.cos(phi2)
-            * math.sin(dlambda / 2) ** 2
-        )
-
-        return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return haversine(lat1, lon1, lat2, lon2)
 
     async def get_nearest_stop(self, home_lat, home_lon, logger=None):
         data = await self.get_paradas()

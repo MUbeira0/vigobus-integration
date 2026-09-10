@@ -52,3 +52,39 @@ MAX_DEVICE_NEAREST_TIE_MARGIN_M = 500
 DEFAULT_DEVICE_NEAREST_MAX_CANDIDATES = 3
 MIN_DEVICE_NEAREST_MAX_CANDIDATES = 1
 MAX_DEVICE_NEAREST_MAX_CANDIDATES = 5
+
+SERVICE_PLAN_TRIP = "plan_trip"
+SERVICE_SEARCH_STOPS = "search_stops"
+
+GTFS_URL = "https://datos.vigo.org/data/transporte/gtfs_vigo.zip"
+
+# This feed is "calendar_dates-only" (every service day exists solely as an
+# exception_type==1 row on a rolling horizon the publisher regenerates), so a
+# shorter TTL than the 24h used for line colors is safer — an instance that
+# builds the index late at night shouldn't hold a feed whose newest rows
+# stop covering "today" for a whole day.
+GTFS_CACHE_TTL_SECONDS = 12 * 60 * 60
+
+WALK_SPEED_MPS = 1.25  # ~4.5 km/h, a common default for walking-directions estimates
+
+DEFAULT_TRIP_MAX_WALK_M = 800
+MIN_TRIP_MAX_WALK_M = 100
+MAX_TRIP_MAX_WALK_M = 2000
+
+DEFAULT_TRIP_MAX_TRANSFERS = 2
+MIN_TRIP_MAX_TRANSFERS = 0
+MAX_TRIP_MAX_TRANSFERS = 2
+
+DEFAULT_TRIP_MAX_ITINERARIES = 3
+MIN_TRIP_MAX_ITINERARIES = 1
+MAX_TRIP_MAX_ITINERARIES = 5
+
+# Stops within this radius are treated as one instantly-transferable cluster
+# (e.g. opposite-direction platforms at the same corner share no single GTFS
+# stop_id, but a rider can just walk across).
+TRIP_TRANSFER_CLUSTER_RADIUS_M = 40
+TRIP_TRANSFER_MIN_SECONDS = 90
+
+DEFAULT_STOP_SEARCH_LIMIT = 8
+MIN_STOP_SEARCH_LIMIT = 1
+MAX_STOP_SEARCH_LIMIT = 25
