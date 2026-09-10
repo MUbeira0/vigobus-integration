@@ -1,4 +1,5 @@
 import asyncio
+import html
 import math
 import time
 
@@ -209,6 +210,8 @@ class VigoBusApi:
                 "lineas": ", ".join(affected_lines),
                 "inicio": item.get("fecha_inicio"),
                 "fin": item.get("fecha_fin"),
+                "description": html.unescape(str(item.get("resumen") or "").strip()) or None,
+                "category": str(item.get("subcategoria") or "").strip() or None,
             }
 
             for line in affected_lines:
