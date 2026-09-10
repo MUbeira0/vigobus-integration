@@ -24,6 +24,8 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times 
 - Stop list, line colors, and alerts are cached in memory (not re-downloaded on every scan cycle) and independent devices/stops are refreshed concurrently, so scans stay fast even with several tracked people or configured stops
 - Backs off automatically after repeated failures instead of retrying at full speed against a backend that's down, and resets to the configured interval as soon as it recovers
 - Diagnostics support: Settings → Devices & Services → VigoBus Pro → Download diagnostics gives a redacted snapshot of coordinator/config state for bug reports, without needing to paste coordinates or custom stop names
+- Optional "Notify when a new alert appears" toggle, with an optional list of notify services/devices to also send it to (in addition to the Home Assistant notifications panel)
+- Trip planner: `vigobus.search_stops` and `vigobus.plan_trip` services plan a real bus trip (with transfers) from an origin to a destination using Vigo's official static GTFS schedule for Vitrasa — the companion card's "Plan a trip" section (its own on/off toggle) is built on these. Known limitations: destination must be a stop (no free-text address); only the itinerary's first bus leg is cross-checked against live arrival data; a query very late at night may miss a trip that started the previous service day
 
 ## Installation with HACS
 
