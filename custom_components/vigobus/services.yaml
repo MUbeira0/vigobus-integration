@@ -209,3 +209,13 @@ plan_trip:
       name: Include live data
       description: Cross-check the first bus leg against live arrival data when its departure is soon. Defaults to true.
       example: true
+    ors_api_key:
+      name: OpenRouteService API key
+      description: >
+        Optional. When set, the first and last walk legs get a real
+        street-level walking route (via OpenRouteService) instead of a
+        straight line between their two points. Get a free key at
+        openrouteservice.org/dev (2000 requests/day) — no free, keyless
+        walking-routing service exists that's safe for a distributed app
+        the way OpenFreeMap solves that for map tiles, so this is opt-in.
+      example: "5b3ce3597851110001cf6248xxxxxxxxxxxxxxxxxxxxxxxx"

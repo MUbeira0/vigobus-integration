@@ -8,7 +8,7 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
-from . import geocoding, gtfs, trip_planner
+from . import geocoding, gtfs, routing, trip_planner
 from .api import VigoBusApi
 from .const import (
     DEFAULT_ALERTS_LANG,
@@ -195,6 +195,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                         vol.Range(min=MIN_TRIP_MAX_ITINERARIES, max=MAX_TRIP_MAX_ITINERARIES),
                     ),
                     vol.Optional("include_live"): bool,
+                    vol.Optional("ors_api_key"): str,
                 }
             ),
             supports_response=SupportsResponse.ONLY,
@@ -352,6 +353,8 @@ async def plan_trip_handler(hass, data):
 
     if data.get("origin_stop_id"):
         origin_access = [{"stop_id": data["origin_stop_id"], "walk_seconds": 0}]
+        origin_stop = index["stops"].get(data["origin_stop_id"])
+        origin_point = {"lat": origin_stop["lat"], "lon": origin_stop["lon"]} if origin_stop else None
     else:
         origin_access = await hass.async_add_executor_job(
             trip_planner.nearest_index_stops,
@@ -360,9 +363,12 @@ async def plan_trip_handler(hass, data):
             data["origin_longitude"],
             max_walk_m,
         )
+        origin_point = {"lat": data["origin_latitude"], "lon": data["origin_longitude"]}
 
     if data.get("destination_stop_id"):
         dest_access = [{"stop_id": data["destination_stop_id"], "walk_seconds": 0}]
+        dest_stop = index["stops"].get(data["destination_stop_id"])
+        destination_point = {"lat": dest_stop["lat"], "lon": dest_stop["lon"]} if dest_stop else None
     else:
         dest_access = await hass.async_add_executor_job(
             trip_planner.nearest_index_stops,
@@ -371,6 +377,7 @@ async def plan_trip_handler(hass, data):
             data["destination_longitude"],
             max_walk_m,
         )
+        destination_point = {"lat": data["destination_latitude"], "lon": data["destination_longitude"]}
 
     result = await hass.async_add_executor_job(
         trip_planner.plan,
@@ -396,8 +403,63 @@ async def plan_trip_handler(hass, data):
             except Exception:
                 _LOGGER.debug("VigoBus: unable to attach live data to trip plan", exc_info=True)
 
+    ors_api_key = data.get("ors_api_key")
+    if ors_api_key:
+        for itinerary in result["itineraries"]:
+            try:
+                await _attach_walking_shapes(api.session, ors_api_key, itinerary, origin_point, destination_point)
+            except Exception:
+                _LOGGER.debug("VigoBus: unable to attach walking shapes to trip plan", exc_info=True)
+
     result["service_date"] = date_str
     return result
+
+
+async def _attach_walking_shapes(session, api_key, itinerary, origin_point, destination_point):
+    """Best-effort: replace an itinerary's first/last walk leg's implied
+    straight line with a real street-level walking route from OpenRouteService,
+    when the caller configured an api_key. Never raises — the caller already
+    wraps this in a try/except, same as the live-data and line-color steps.
+    """
+    legs = itinerary.get("legs", [])
+    if not legs:
+        return
+
+    first_leg = legs[0]
+    to_stop = first_leg.get("to_stop")
+    if first_leg.get("mode") == "walk" and to_stop and origin_point and to_stop.get("latitude") is not None:
+        shape = await routing.get_walking_route(
+            session,
+            api_key,
+            origin_point["lat"],
+            origin_point["lon"],
+            to_stop["latitude"],
+            to_stop["longitude"],
+            logger=_LOGGER,
+        )
+        if shape:
+            first_leg["shape"] = shape
+
+    last_leg = legs[-1]
+    from_stop = last_leg.get("from_stop")
+    if (
+        last_leg is not first_leg
+        and last_leg.get("mode") == "walk"
+        and from_stop
+        and destination_point
+        and from_stop.get("latitude") is not None
+    ):
+        shape = await routing.get_walking_route(
+            session,
+            api_key,
+            from_stop["latitude"],
+            from_stop["longitude"],
+            destination_point["lat"],
+            destination_point["lon"],
+            logger=_LOGGER,
+        )
+        if shape:
+            last_leg["shape"] = shape
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

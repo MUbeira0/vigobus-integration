@@ -217,6 +217,75 @@ class PlanTripHandlerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(leg["line"], "C1")
         self.assertEqual(leg["depart"], "08:00")
 
+    async def test_ors_api_key_attaches_real_walking_shapes_to_walk_legs(self):
+        index = gtfs.parse_gtfs_zip(build_fixture_zip())
+
+        async def fake_get_gtfs_index(session, logger=None, force=False):
+            return index
+
+        walking_route_calls = []
+
+        async def fake_get_walking_route(session, api_key, from_lat, from_lon, to_lat, to_lon, logger=None):
+            walking_route_calls.append((api_key, (from_lat, from_lon), (to_lat, to_lon)))
+            return [[from_lat, from_lon], [to_lat, to_lon]]
+
+        with (
+            patch.object(vigobus_pkg.gtfs, "get_gtfs_index", fake_get_gtfs_index),
+            patch.object(vigobus_pkg.routing, "get_walking_route", fake_get_walking_route),
+        ):
+            result = await vigobus_pkg.plan_trip_handler(
+                _FakeHass(),
+                {
+                    # Slightly offset from stop A/C so nearest_index_stops
+                    # produces a real (non-zero) walk leg at each end. A tight
+                    # max_walk_m keeps A/C's *own* nearest-stop search from
+                    # also reaching the other end directly (the whole A-C
+                    # gap is only ~580m in this fixture) — otherwise walking
+                    # the entire trip beats waiting for the bus and the
+                    # planner correctly reports no bus route at all.
+                    "origin_latitude": 42.2301,
+                    "origin_longitude": -8.7201,
+                    "destination_latitude": 42.2341,
+                    "destination_longitude": -8.7241,
+                    "max_walk_m": 100,
+                    "depart_at": "08:00",
+                    "include_live": False,
+                    "ors_api_key": "fake-key",
+                },
+            )
+
+        legs = result["itineraries"][0]["legs"]
+        self.assertEqual(legs[0]["mode"], "walk")
+        self.assertEqual(legs[-1]["mode"], "walk")
+        self.assertIn("shape", legs[0])
+        self.assertIn("shape", legs[-1])
+        self.assertEqual(len(walking_route_calls), 2)
+        self.assertTrue(all(call[0] == "fake-key" for call in walking_route_calls))
+
+    async def test_no_ors_api_key_leaves_walk_legs_without_a_shape(self):
+        index = gtfs.parse_gtfs_zip(build_fixture_zip())
+
+        async def fake_get_gtfs_index(session, logger=None, force=False):
+            return index
+
+        with patch.object(vigobus_pkg.gtfs, "get_gtfs_index", fake_get_gtfs_index):
+            result = await vigobus_pkg.plan_trip_handler(
+                _FakeHass(),
+                {
+                    "origin_latitude": 42.2301,
+                    "origin_longitude": -8.7201,
+                    "destination_latitude": 42.2341,
+                    "destination_longitude": -8.7241,
+                    "max_walk_m": 100,
+                    "depart_at": "08:00",
+                    "include_live": False,
+                },
+            )
+
+        legs = result["itineraries"][0]["legs"]
+        self.assertNotIn("shape", legs[0])
+        self.assertNotIn("shape", legs[-1])
+
 
 if __name__ == "__main__":
     unittest.main()
