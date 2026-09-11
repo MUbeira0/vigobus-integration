@@ -8,12 +8,13 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
-from . import gtfs, trip_planner
+from . import geocoding, gtfs, trip_planner
 from .api import VigoBusApi
 from .const import (
     DEFAULT_ALERTS_LANG,
     DEFAULT_DEVICE_NEAREST_MAX_CANDIDATES,
     DEFAULT_DEVICE_NEAREST_TIE_MARGIN_M,
+    DEFAULT_GEOCODE_LIMIT,
     DEFAULT_STOP_SEARCH_LIMIT,
     DEFAULT_TRIP_MAX_ITINERARIES,
     DEFAULT_TRIP_MAX_TRANSFERS,
@@ -22,16 +23,19 @@ from .const import (
     LIVE_CHECK_HORIZON_SECONDS,
     MAX_DEVICE_NEAREST_MAX_CANDIDATES,
     MAX_DEVICE_NEAREST_TIE_MARGIN_M,
+    MAX_GEOCODE_LIMIT,
     MAX_STOP_SEARCH_LIMIT,
     MAX_TRIP_MAX_ITINERARIES,
     MAX_TRIP_MAX_TRANSFERS,
     MAX_TRIP_MAX_WALK_M,
     MIN_DEVICE_NEAREST_MAX_CANDIDATES,
     MIN_DEVICE_NEAREST_TIE_MARGIN_M,
+    MIN_GEOCODE_LIMIT,
     MIN_STOP_SEARCH_LIMIT,
     MIN_TRIP_MAX_ITINERARIES,
     MIN_TRIP_MAX_TRANSFERS,
     MIN_TRIP_MAX_WALK_M,
+    SERVICE_GEOCODE,
     SERVICE_NEAREST_STOPS,
     SERVICE_PLAN_TRIP,
     SERVICE_REFRESH,
@@ -135,6 +139,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                         vol.Coerce(int),
                         vol.Range(min=MIN_STOP_SEARCH_LIMIT, max=MAX_STOP_SEARCH_LIMIT),
                     ),
+                }
+            ),
+            supports_response=SupportsResponse.ONLY,
+        )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_GEOCODE):
+        async def _handle_geocode(call):
+            return await geocode_handler(hass, call.data)
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GEOCODE,
+            _handle_geocode,
+            schema=vol.Schema(
+                {
+                    vol.Required("query"): str,
+                    vol.Optional("limit"): vol.All(
+                        vol.Coerce(int),
+                        vol.Range(min=MIN_GEOCODE_LIMIT, max=MAX_GEOCODE_LIMIT),
+                    ),
+                    vol.Optional("lang"): str,
                 }
             ),
             supports_response=SupportsResponse.ONLY,
@@ -279,6 +304,19 @@ async def search_stops_handler(hass, data):
     }
 
 
+async def geocode_handler(hass, data):
+    """Body of the geocode service — a plain function of (hass, call.data)
+    so it's directly unit-testable without going through async_setup_entry."""
+    places = await geocoding.geocode(
+        async_get_clientsession(hass),
+        data["query"],
+        limit=data.get("limit", DEFAULT_GEOCODE_LIMIT),
+        lang=data.get("lang", DEFAULT_ALERTS_LANG),
+        logger=_LOGGER,
+    )
+    return {"places": places}
+
+
 async def plan_trip_handler(hass, data):
     """Body of the plan_trip service — a plain function of (hass, call.data)
     so it's directly unit-testable without going through async_setup_entry."""
@@ -373,6 +411,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 hass.services.async_remove(DOMAIN, SERVICE_NEAREST_STOPS)
             if hass.services.has_service(DOMAIN, SERVICE_SEARCH_STOPS):
                 hass.services.async_remove(DOMAIN, SERVICE_SEARCH_STOPS)
+            if hass.services.has_service(DOMAIN, SERVICE_GEOCODE):
+                hass.services.async_remove(DOMAIN, SERVICE_GEOCODE)
             if hass.services.has_service(DOMAIN, SERVICE_PLAN_TRIP):
                 hass.services.async_remove(DOMAIN, SERVICE_PLAN_TRIP)
     return unload_ok

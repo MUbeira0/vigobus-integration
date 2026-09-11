@@ -93,3 +93,30 @@ MAX_STOP_SEARCH_LIMIT = 25
 # now" — cross-checking a planned leg's live arrival only makes sense when
 # its scheduled departure is still within that near-term horizon.
 LIVE_CHECK_HORIZON_SECONDS = 45 * 60
+
+SERVICE_GEOCODE = "geocode"
+
+# OpenStreetMap's public Nominatim instance — free, no API key, used so the
+# trip planner can search a real address or named place (a school, a mall)
+# instead of only an exact bus stop. Their usage policy requires a real,
+# identifying User-Agent and caps requests at ~1/second; both are honored in
+# geocoding.py. Results must be attributed to OpenStreetMap contributors
+# wherever they're shown (the card does this in its search UI).
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_USER_AGENT = (
+    "vigobus-integration Home Assistant custom component "
+    "(https://github.com/MUbeira0/vigobus-integration)"
+)
+NOMINATIM_MIN_INTERVAL_SECONDS = 1.0
+
+# Roughly Vitrasa's whole service area (Vigo plus the outlying parishes its
+# lines actually reach) — hard-bounds geocoding results to this box so
+# "colegio X" can't match a same-named place in another city, and so a
+# result the bus network could never reach isn't offered in the first place.
+GEOCODE_VIEWBOX = "-8.85,42.32,-8.60,42.10"
+
+GEOCODE_CACHE_TTL_SECONDS = 60 * 60
+
+DEFAULT_GEOCODE_LIMIT = 5
+MIN_GEOCODE_LIMIT = 1
+MAX_GEOCODE_LIMIT = 10

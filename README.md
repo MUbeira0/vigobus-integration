@@ -25,7 +25,7 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times 
 - Backs off automatically after repeated failures instead of retrying at full speed against a backend that's down, and resets to the configured interval as soon as it recovers
 - Diagnostics support: Settings → Devices & Services → VigoBus Pro → Download diagnostics gives a redacted snapshot of coordinator/config state for bug reports, without needing to paste coordinates or custom stop names
 - Optional "Notify when a new alert appears" toggle, with an optional list of notify services/devices to also send it to (in addition to the Home Assistant notifications panel)
-- Trip planner: `vigobus.search_stops` and `vigobus.plan_trip` services plan a real bus trip (with transfers) from an origin to a destination using Vigo's official static GTFS schedule for Vitrasa — the companion card's "Plan a trip" section (its own on/off toggle) is built on these. Known limitations: destination must be a stop (no free-text address); only the itinerary's first bus leg is cross-checked against live arrival data; a query very late at night may miss a trip that started the previous service day
+- Trip planner: `vigobus.geocode`, `vigobus.search_stops`, and `vigobus.plan_trip` services plan a real bus trip (with transfers) from an origin to a destination — a free-text address or named place (a school, a shopping mall, a hospital), not just an exact stop — using Vigo's official static GTFS schedule for Vitrasa and OpenStreetMap's public Nominatim geocoder. The companion card's "Plan a trip" section (its own on/off toggle) is built on these; it returns several ranked route options, not just one. Known limitations: only the itinerary's first bus leg is cross-checked against live arrival data; a query very late at night may miss a trip that started the previous service day
 
 ## Installation with HACS
 
@@ -59,6 +59,17 @@ Alerts.
 - Line and route information for each next arrival
 - Remaining bus distance (when available)
 - Service alerts per line (Spanish and Galician, with fallback)
+
+## Trip planner and geocoding privacy note
+
+The `vigobus.geocode` service (used by the card's destination search) sends
+whatever text is typed there to OpenStreetMap's public Nominatim service —
+that's the only way to resolve a free-text address or place name into
+coordinates without adding a paid API key. Nothing else in this integration
+talks to a third party beyond Vigo's own open-data endpoints. Requests are
+capped at roughly one per second and cached for an hour, per Nominatim's
+usage policy; place results shown anywhere must be attributed to
+OpenStreetMap contributors (the companion card does this).
 
 ## Troubleshooting
 

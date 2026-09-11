@@ -85,6 +85,36 @@ search_stops:
           min: 1
           max: 25
 
+geocode:
+  name: Geocode a place
+  description: >
+    Stateless lookup: turns a free-text address or named place (a school, a
+    shopping mall, a hospital) into coordinates, via OpenStreetMap's public
+    Nominatim service. Results are restricted to the Vigo area. Intended for
+    a dashboard card's destination search when planning a trip (see
+    plan_trip) — a result found here can be passed straight into
+    plan_trip's destination_latitude/destination_longitude. Results must be
+    attributed to OpenStreetMap contributors wherever they're shown, per
+    Nominatim's usage policy.
+  fields:
+    query:
+      name: Query
+      description: An address or place name to search for (e.g. "Centro Comercial A Laxe" or "Hospital Alvaro Cunqueiro").
+      required: true
+      example: "Centro Comercial A Laxe"
+    limit:
+      name: Limit
+      description: Maximum number of matching places to return.
+      example: 5
+      selector:
+        number:
+          min: 1
+          max: 10
+    lang:
+      name: Language
+      description: Language for the returned place names/addresses ("es", "gl" or "en"). Defaults to "es".
+      example: "es"
+
 plan_trip:
   name: Plan a trip
   description: >
@@ -93,13 +123,13 @@ plan_trip:
     returns one or more itineraries (each a list of walk/bus legs with clock
     times), sorted by arrival time — additional options only appear when
     using more transfers actually arrives sooner. Each end can be given
-    either as coordinates (the closest stops
-    within max_walk_m are considered) or as an exact stop_id from
-    search_stops/nearest_stops. Known limitations: destination must be a
-    stop, not a free-text address; only the itinerary's first bus leg is
-    cross-checked against live arrival data, everything after that is
-    timetable-only; a query very late at night (after midnight) may miss a
-    trip that started the previous service day.
+    either as coordinates (the closest stops within max_walk_m are
+    considered — use geocode to turn a free-text address or place name into
+    coordinates first) or as an exact stop_id from search_stops/nearest_stops.
+    Known limitations: only the itinerary's first bus leg is cross-checked
+    against live arrival data, everything after that is timetable-only; a
+    query very late at night (after midnight) may miss a trip that started
+    the previous service day.
   fields:
     origin_latitude:
       name: Origin latitude

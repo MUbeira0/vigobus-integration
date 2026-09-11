@@ -64,6 +64,28 @@ class SearchStopsHandlerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["stops"], [])
 
 
+class GeocodeHandlerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_places_from_the_geocoder(self):
+        places = [{"name": "Colexio Alameda", "display_name": "Colexio Alameda, Vigo", "latitude": 42.23, "longitude": -8.72}]
+
+        async def fake_geocode(session, query, limit=5, lang="es", logger=None):
+            return places
+
+        with patch.object(vigobus_pkg.geocoding, "geocode", fake_geocode):
+            result = await vigobus_pkg.geocode_handler(_FakeHass(), {"query": "colexio alameda"})
+
+        self.assertEqual(result, {"places": places})
+
+    async def test_no_match_returns_empty_list(self):
+        async def fake_geocode(session, query, limit=5, lang="es", logger=None):
+            return []
+
+        with patch.object(vigobus_pkg.geocoding, "geocode", fake_geocode):
+            result = await vigobus_pkg.geocode_handler(_FakeHass(), {"query": "nowhere at all"})
+
+        self.assertEqual(result, {"places": []})
+
+
 class ResolveDepartTests(unittest.TestCase):
     def test_no_depart_at_uses_now(self):
         now = datetime.datetime(2026, 9, 11, 8, 30, 0)
