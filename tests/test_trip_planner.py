@@ -81,6 +81,62 @@ class TripPlannerTests(unittest.TestCase):
         access = trip_planner.nearest_index_stops(self.index, near_a_lat, near_a_lon, max_walk_m=10)
         self.assertEqual([a["stop_id"] for a in access], ["A"])
 
+    def test_returns_a_slower_direct_option_alongside_a_faster_transfer(self):
+        # A third line (R3) runs a slow direct A->D trip; the existing
+        # transfer via the C/C2 cluster (C1 then 15) is faster. Both should
+        # come back, sorted by arrival — this is the "several reasonable
+        # options" behaviour a rider expects from a real trip planner, not
+        # just the single fastest path.
+        index = gtfs.parse_gtfs_zip(
+            build_fixture_zip(
+                **{
+                    "routes.txt": (
+                        "route_id,route_short_name,route_long_name,route_color\n"
+                        "R1,C1,Circular Centro,ED4713\n"
+                        "R2,15,Navia,1A73C8\n"
+                        "R3,20,Directo,00AA00\n"
+                    ),
+                    "trips.txt": (
+                        "route_id,service_id,trip_id,trip_headsign,direction_id\n"
+                        "R1,S1,T1,Navia,0\n"
+                        "R1,S1,T2,Navia,0\n"
+                        "R2,S1,T3,Centro,0\n"
+                        "R1,S2,T4,Navia,0\n"
+                        "R3,S1,T5,Directo,0\n"
+                    ),
+                    "stop_times.txt": (
+                        "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+                        "T1,08:00:00,08:00:00,A,1\n"
+                        "T1,08:05:00,08:05:00,B,2\n"
+                        "T1,08:10:00,08:10:00,C,3\n"
+                        "T2,08:30:00,08:30:00,A,1\n"
+                        "T2,08:35:00,08:35:00,B,2\n"
+                        "T2,08:40:00,08:40:00,C,3\n"
+                        "T3,08:20:00,08:20:00,C2,1\n"
+                        "T3,08:35:00,08:35:00,D,2\n"
+                        "T4,25:10:00,25:10:00,A,1\n"
+                        "T4,25:20:00,25:20:00,C,2\n"
+                        "T5,08:00:00,08:00:00,A,1\n"
+                        "T5,09:10:00,09:10:00,D,2\n"
+                    ),
+                }
+            )
+        )
+
+        result = trip_planner.plan(
+            index, self._access("A"), self._access("D"), "20260911", _seconds(6, 0), max_rounds=3
+        )
+
+        self.assertEqual(result["warnings"], [])
+        self.assertEqual(len(result["itineraries"]), 2)
+
+        # Sorted by arrival time: the faster transfer option comes first.
+        transfer, direct = result["itineraries"]
+        self.assertEqual(transfer["transfers"], 1)
+        self.assertEqual(transfer["arrive"], "08:35")
+        self.assertEqual(direct["transfers"], 0)
+        self.assertEqual(direct["arrive"], "09:10")
+
     def test_removed_service_excludes_that_days_trip(self):
         # T4 (service S2, direct A->C) is removed on the 12th, but T1/T2
         # (service S1, via B) still run — the direct-only pattern for T4

@@ -351,11 +351,12 @@ async def plan_trip_handler(hass, data):
     except Exception:
         _LOGGER.debug("VigoBus: unable to attach line colors to trip plan", exc_info=True)
 
-    if include_live and result["itineraries"]:
-        try:
-            await _attach_live_first_leg(api, result["itineraries"][0], now_seconds)
-        except Exception:
-            _LOGGER.debug("VigoBus: unable to attach live data to trip plan", exc_info=True)
+    if include_live:
+        for itinerary in result["itineraries"]:
+            try:
+                await _attach_live_first_leg(api, itinerary, now_seconds)
+            except Exception:
+                _LOGGER.debug("VigoBus: unable to attach live data to trip plan", exc_info=True)
 
     result["service_date"] = date_str
     return result

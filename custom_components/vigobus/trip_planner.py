@@ -58,9 +58,11 @@ def plan(index, origin_access, dest_access, date_str, depart_seconds, max_rounds
     from nearest_index_stops() (or a single {"stop_id", "walk_seconds": 0}
     when the caller already picked an exact stop).
 
-    max_itineraries is accepted for a future multi-option version but v1
-    always returns at most one (the fastest-arrival) itinerary — see the
-    module docstring's limitations list.
+    Returns several itineraries when using more transfers actually gets you
+    there faster (e.g. a direct 40-minute ride *and* a 1-transfer 28-minute
+    one) — the same "several reasonable options" list a rider expects from
+    Moovit/Google Maps, not just the single fastest path. Options are sorted
+    by arrival time and capped at max_itineraries.
     """
     services = active_services(index, date_str)
     if not services:
@@ -92,6 +94,14 @@ def plan(index, origin_access, dest_access, date_str, depart_seconds, max_rounds
     for stop_id, walk_seconds in dest_walk.items():
         if stop_id in tau:
             best_target = min(best_target, tau[stop_id] + walk_seconds)
+
+    # tau_snapshots[k] = a copy of tau as it stood right after round k
+    # finished — i.e. "best arrival at every stop achievable using at most k
+    # rounds". Needed because tau itself keeps improving through later
+    # rounds: reconstructing "the best 0-transfer option" using the *final*
+    # tau would silently pick up a later round's better path instead.
+    tau_snapshots = {0: dict(tau)}
+    rounds_reached = 0
 
     for k in range(1, max_rounds + 1):
         queue = {}
@@ -159,32 +169,56 @@ def plan(index, origin_access, dest_access, date_str, depart_seconds, max_rounds
                     if neighbor in dest_walk:
                         best_target = min(best_target, t + dest_walk[neighbor])
 
+        tau_snapshots[k] = dict(tau)
+        rounds_reached = k
         tau_prev = dict(tau)
         if not marked:
             break
 
-    best_stop = None
-    best_arrival = INF
-    for stop_id, walk_seconds in dest_walk.items():
-        if stop_id in tau and tau[stop_id] + walk_seconds < best_arrival:
-            best_arrival = tau[stop_id] + walk_seconds
-            best_stop = stop_id
+    def _best_at_round(k):
+        best_stop = None
+        best_arrival = INF
+        snapshot = tau_snapshots[k]
+        for stop_id, walk_seconds in dest_walk.items():
+            if stop_id in snapshot and snapshot[stop_id] + walk_seconds < best_arrival:
+                best_arrival = snapshot[stop_id] + walk_seconds
+                best_stop = stop_id
+        return best_stop, best_arrival
 
-    if best_stop is None:
+    itineraries = []
+    seen_arrivals = set()
+    previous_best = INF
+    for k in range(0, rounds_reached + 1):
+        best_stop, best_arrival = _best_at_round(k)
+        if best_stop is None or best_arrival >= previous_best:
+            continue
+
+        # Only a *reconstructed* (bus) itinerary counts toward "did more
+        # transfers actually help" — a walk-only best_arrival (k == 0, or a
+        # reconstruction gap) must not suppress every later round just
+        # because walking there directly happens to be quick.
+        itinerary = _reconstruct(index, labels, k, best_stop, dest_walk, depart_seconds)
+        if itinerary is None:
+            continue
+        previous_best = best_arrival
+
+        if itinerary["arrive_seconds"] in seen_arrivals:
+            continue
+        seen_arrivals.add(itinerary["arrive_seconds"])
+        itineraries.append(itinerary)
+
+    if not itineraries:
         return {"itineraries": [], "warnings": ["no_route_found"]}
 
-    itinerary = _reconstruct(index, labels, max_rounds, best_stop, dest_walk, depart_seconds)
-    if itinerary is None:
-        return {"itineraries": [], "warnings": ["no_route_found"]}
-
-    return {"itineraries": [itinerary], "warnings": []}
+    itineraries.sort(key=lambda it: it["arrive_seconds"])
+    return {"itineraries": itineraries[:max_itineraries], "warnings": []}
 
 
 def _reconstruct(index, labels, max_round, best_stop, dest_walk, depart_seconds):
-    # tau only improves over rounds, and every improvement is written
-    # alongside a labels[k] entry, so the *highest* round index (searching
+    # Every improvement to a stop's arrival is written alongside a labels[k]
+    # entry for that same round, so the highest round index (searching
     # backward from max_round) holding a label for best_stop is the one
-    # consistent with its final tau value.
+    # consistent with reaching it using at most max_round rounds.
     cursor = best_stop
     cursor_round = max_round
     while cursor_round > 0 and cursor not in labels[cursor_round]:
