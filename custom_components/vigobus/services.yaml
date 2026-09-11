@@ -121,7 +121,9 @@ plan_trip:
     Stateless lookup: plans a bus trip (with transfers) from an origin to a
     destination using Vigo's official static GTFS schedule for Vitrasa, and
     returns one or more itineraries (each a list of walk/bus legs with clock
-    times), sorted by arrival time — additional options only appear when
+    times — a bus leg's "shape" field is its real as-driven street geometry
+    from the feed, trimmed to that ride, for drawing it on a map), sorted by
+    arrival time — additional options only appear when
     using more transfers actually arrives sooner. Each end can be given
     either as coordinates (the closest stops within max_walk_m are
     considered — use geocode to turn a free-text address or place name into

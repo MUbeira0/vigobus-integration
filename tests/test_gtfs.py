@@ -30,11 +30,11 @@ def build_fixture_zip(**overrides):
             "R2,15,Navia,1A73C8\n"
         ),
         "trips.txt": (
-            "route_id,service_id,trip_id,trip_headsign,direction_id\n"
-            "R1,S1,T1,Navia,0\n"
-            "R1,S1,T2,Navia,0\n"
-            "R2,S1,T3,Centro,0\n"
-            "R1,S2,T4,Navia,0\n"
+            "route_id,service_id,trip_id,trip_headsign,direction_id,shape_id\n"
+            "R1,S1,T1,Navia,0,S_C1\n"
+            "R1,S1,T2,Navia,0,S_C1\n"
+            "R2,S1,T3,Centro,0,S_15\n"
+            "R1,S2,T4,Navia,0,\n"
         ),
         "stop_times.txt": (
             "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
@@ -69,7 +69,20 @@ def build_fixture_zip(**overrides):
             "S1,20260912,1\n"
             "S2,20260912,2\n"
         ),
-        "shapes.txt": "shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\nX,0,0,1\n",
+        "shapes.txt": (
+            "shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n"
+            # S_C1 follows the real street A -> B -> C, with a couple of
+            # intermediate points on each leg (not just the stop locations).
+            "S_C1,42.2300,-8.7200,1\n"
+            "S_C1,42.2310,-8.7210,2\n"
+            "S_C1,42.2320,-8.7220,3\n"
+            "S_C1,42.2330,-8.7230,4\n"
+            "S_C1,42.2340,-8.7240,5\n"
+            # S_15 follows C2 -> D.
+            "S_15,42.23403,-8.72403,1\n"
+            "S_15,42.2370,-8.7270,2\n"
+            "S_15,42.2400,-8.7300,3\n"
+        ),
     }
     files.update(overrides)
 
@@ -91,10 +104,23 @@ class GtfsParseTests(unittest.TestCase):
         # T4 has a different stop sequence (A->C direct) -> its own pattern.
         self.assertEqual(index["counts"]["patterns"], 3)
 
-    def test_shapes_txt_is_never_opened(self):
-        # A malformed shapes.txt must not break parsing, proving it's unread.
+    def test_a_malformed_shapes_file_does_not_break_parsing(self):
         index = gtfs.parse_gtfs_zip(build_fixture_zip(**{"shapes.txt": "not,even,csv,{{{"}))
         self.assertEqual(index["counts"]["stops"], 6)
+        self.assertEqual(index["shapes"], {})
+
+    def test_shapes_are_parsed_in_point_sequence_order(self):
+        index = gtfs.parse_gtfs_zip(build_fixture_zip())
+        self.assertEqual(
+            index["shapes"]["S_C1"],
+            [(42.23, -8.72), (42.231, -8.721), (42.232, -8.722), (42.233, -8.723), (42.234, -8.724)],
+        )
+        self.assertEqual(index["counts"]["shapes"], 2)
+
+    def test_a_pattern_carries_the_shape_id_of_each_of_its_trips(self):
+        index = gtfs.parse_gtfs_zip(build_fixture_zip())
+        abc_pattern = next(p for p in index["patterns"] if p["stops"] == ("A", "B", "C"))
+        self.assertEqual(abc_pattern["shape_ids"], ["S_C1", "S_C1"])
 
     def test_handles_utf8_bom(self):
         with_bom = build_fixture_zip()

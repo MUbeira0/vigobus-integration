@@ -53,6 +53,49 @@ def _cluster_neighbors(index, stop_id):
     return tuple(s for s in index["cluster_members"].get(cluster_id, ()) if s != stop_id)
 
 
+def _nearest_shape_point_index(points, lat, lon):
+    best_idx = 0
+    best_dist = INF
+    for idx, (plat, plon) in enumerate(points):
+        # A quick planar approximation is enough here — this is only
+        # choosing which point along an already-real street shape is
+        # closest to a stop, not measuring a real-world distance.
+        dist = (plat - lat) ** 2 + (plon - lon) ** 2
+        if dist < best_dist:
+            best_dist = dist
+            best_idx = idx
+    return best_idx
+
+
+def _leg_shape(index, pattern, trip_idx, board_stop, alight_stop):
+    """The real street geometry (from shapes.txt) for one bus leg, trimmed to
+    just the section between the boarding and alighting stop — or None when
+    this trip has no shape (callers fall back to a straight line)."""
+    shape_ids = pattern.get("shape_ids")
+    if not shape_ids:
+        return None
+    shape_id = shape_ids[trip_idx]
+    points = index.get("shapes", {}).get(shape_id) if shape_id else None
+    if not points or len(points) < 2:
+        return None
+
+    board = index["stops"].get(board_stop)
+    alight = index["stops"].get(alight_stop)
+    if not board or not alight:
+        return None
+
+    start_idx = _nearest_shape_point_index(points, board["lat"], board["lon"])
+    end_idx = _nearest_shape_point_index(points, alight["lat"], alight["lon"])
+    if start_idx == end_idx:
+        return None
+
+    low, high = min(start_idx, end_idx), max(start_idx, end_idx)
+    segment = points[low : high + 1]
+    if start_idx > end_idx:
+        segment = list(reversed(segment))
+    return [[lat, lon] for lat, lon in segment]
+
+
 def plan(index, origin_access, dest_access, date_str, depart_seconds, max_rounds=3, max_itineraries=3):
     """origin_access / dest_access: lists of {"stop_id", "walk_seconds", ...}
     from nearest_index_stops() (or a single {"stop_id", "walk_seconds": 0}
@@ -277,26 +320,31 @@ def _reconstruct(index, labels, max_round, best_stop, dest_walk, depart_seconds)
         depart_t = pattern["dep"][board_idx][trip_idx]
         arrive_t = pattern["arr"][alight_idx][trip_idx]
         last_arrival = arrive_t
-        legs.append(
-            {
-                "mode": "bus",
-                "line": pattern["line"],
-                "route_id": pattern["route_id"],
-                "headsign": pattern["headsign"],
-                "from_stop": _stop_ref(index, board_stop_id),
-                "to_stop": _stop_ref(index, alight_stop),
-                "depart": _format_clock(depart_t),
-                "arrive": _format_clock(arrive_t),
-                # Raw (possibly >86400, GTFS after-midnight convention)
-                # seconds-since-midnight-of-the-service-day, alongside the
-                # display strings above — callers comparing against "now"
-                # need these instead of re-parsing the wrapped clock string.
-                "depart_seconds": depart_t,
-                "arrive_seconds": arrive_t,
-                "duration_min": round((arrive_t - depart_t) / 60, 1),
-                "num_stops": alight_idx - board_idx,
-            }
-        )
+        shape = _leg_shape(index, pattern, trip_idx, board_stop_id, alight_stop)
+        leg = {
+            "mode": "bus",
+            "line": pattern["line"],
+            "route_id": pattern["route_id"],
+            "headsign": pattern["headsign"],
+            "from_stop": _stop_ref(index, board_stop_id),
+            "to_stop": _stop_ref(index, alight_stop),
+            "depart": _format_clock(depart_t),
+            "arrive": _format_clock(arrive_t),
+            # Raw (possibly >86400, GTFS after-midnight convention)
+            # seconds-since-midnight-of-the-service-day, alongside the
+            # display strings above — callers comparing against "now"
+            # need these instead of re-parsing the wrapped clock string.
+            "depart_seconds": depart_t,
+            "arrive_seconds": arrive_t,
+            "duration_min": round((arrive_t - depart_t) / 60, 1),
+            "num_stops": alight_idx - board_idx,
+        }
+        # The real as-driven street geometry for this leg, trimmed to the
+        # boarding->alighting section — omitted (not None) when this trip
+        # has no shape, so callers can just check "shape" in leg.
+        if shape:
+            leg["shape"] = shape
+        legs.append(leg)
 
     last_stop = bus_legs[-1][1]
     dest_walk_seconds = dest_walk.get(last_stop, 0)

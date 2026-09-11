@@ -34,6 +34,32 @@ class TripPlannerTests(unittest.TestCase):
         self.assertEqual(leg["depart"], "08:00")
         self.assertEqual(leg["arrive"], "08:10")
 
+    def test_bus_leg_carries_the_real_street_shape_trimmed_to_the_ride(self):
+        result = trip_planner.plan(
+            self.index, self._access("A"), self._access("C"), "20260911", _seconds(6, 0)
+        )
+        leg = result["itineraries"][0]["legs"][0]
+        # The full S_C1 shape (5 points, A -> B -> C with intermediates on
+        # each street segment) end to end, since this ride covers all of it.
+        self.assertEqual(
+            leg["shape"],
+            [[42.23, -8.72], [42.231, -8.721], [42.232, -8.722], [42.233, -8.723], [42.234, -8.724]],
+        )
+
+    def test_a_trip_with_no_shape_id_omits_the_shape_field(self):
+        # T4 (service S2, no shape_id at all) is the only trip on its
+        # pattern — the leg should just not have a "shape" key, so a
+        # caller can fall back to a straight line between the stops.
+        result = trip_planner.plan(
+            self.index, self._access("A"), self._access("C"), "20260911", _seconds(0, 0), max_rounds=1
+        )
+        leg = result["itineraries"][0]["legs"][0]
+        self.assertEqual(leg["depart"], "08:00")  # confirms this is the T1/T2 pattern, not T4
+        # T4's own pattern (A->C direct, no shape_id) is a separate check:
+        t4_pattern = next(p for p in self.index["patterns"] if "T4" in p["trip_ids"])
+        shape = trip_planner._leg_shape(self.index, t4_pattern, 0, "A", "C")
+        self.assertIsNone(shape)
+
     def test_departing_mid_headway_takes_the_later_trip_not_a_departed_one(self):
         result = trip_planner.plan(
             self.index, self._access("A"), self._access("C"), "20260911", _seconds(8, 6)

@@ -133,8 +133,11 @@ def parse_gtfs_zip(data, logger=None):
         stop_time_rows = _rows(zf, "stop_times.txt")
         calendar_rows = _rows(zf, "calendar.txt")
         calendar_date_rows = _rows(zf, "calendar_dates.txt")
-        # shapes.txt is deliberately never opened: it's only map polylines,
-        # not needed for routing, and it's the largest file in the feed.
+        # shapes.txt is the largest file in the feed and isn't needed for
+        # the routing calculation itself, but it's the real as-driven street
+        # geometry for each trip — parsed so a bus leg can be drawn on a map
+        # following its actual route instead of a straight line between stops.
+        shape_rows = _rows(zf, "shapes.txt")
 
     stops = {}
     for row in stop_rows:
@@ -166,12 +169,32 @@ def parse_gtfs_zip(data, logger=None):
 
     trip_route = {}
     trip_headsign = {}
+    trip_shape = {}
     for row in trip_rows:
         trip_id = str(row.get("trip_id") or "").strip()
         if not trip_id:
             continue
         trip_route[trip_id] = str(row.get("route_id") or "").strip()
         trip_headsign[trip_id] = str(row.get("trip_headsign") or "").strip()
+        trip_shape[trip_id] = str(row.get("shape_id") or "").strip()
+
+    shape_points = defaultdict(list)
+    for row in shape_rows:
+        shape_id = str(row.get("shape_id") or "").strip()
+        if not shape_id:
+            continue
+        try:
+            seq = int(row.get("shape_pt_sequence"))
+            lat = float(row.get("shape_pt_lat"))
+            lon = float(row.get("shape_pt_lon"))
+        except (TypeError, ValueError):
+            continue
+        shape_points[shape_id].append((seq, lat, lon))
+
+    shapes = {}
+    for shape_id, points in shape_points.items():
+        points.sort(key=lambda item: item[0])
+        shapes[shape_id] = [(lat, lon) for _seq, lat, lon in points]
 
     trip_service = {}
     for row in trip_rows:
@@ -233,6 +256,7 @@ def parse_gtfs_zip(data, logger=None):
                 "stops": stop_ids,
                 "trip_ids": trip_ids,
                 "service_ids": [trip_service.get(tid, "") for tid in trip_ids],
+                "shape_ids": [trip_shape.get(tid, "") for tid in trip_ids],
                 "dep": dep,
                 "arr": arr,
             }
@@ -276,6 +300,7 @@ def parse_gtfs_zip(data, logger=None):
     index = {
         "stops": stops,
         "routes": routes,
+        "shapes": shapes,
         "patterns": patterns,
         "routes_by_stop": dict(routes_by_stop),
         "clusters": clusters,
@@ -290,6 +315,7 @@ def parse_gtfs_zip(data, logger=None):
             "trips": len(trip_route),
             "stop_times": len(stop_time_rows),
             "patterns": len(patterns),
+            "shapes": len(shapes),
         },
     }
 
