@@ -389,4 +389,4 @@ def attach_colors(result, line_colors):
     for itinerary in result.get("itineraries", []):
         for leg in itinerary.get("legs", []):
             if leg.get("mode") == "bus":
-                leg["line_color"] = line_colors.get(leg["line"])
+                leg["line_color"] = line_colors.get(leg["line"]) or line_colors.get(str(leg["line"]).rstrip("0123456789"))

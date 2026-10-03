@@ -1,6 +1,7 @@
 import asyncio
 import html
 import math
+import re
 import time
 
 from aiohttp import ClientSession
@@ -13,6 +14,25 @@ from .const import (
     LINE_COLORS_URL,
     PARADAS_URL,
 )
+
+_VARIANT_PREFIX_RE = re.compile(r"^\s*(\d+)\s+(\S.*)$")
+
+
+def split_line_variant(linea, ruta):
+    """Vigo's open data publishes e.g. Vitrasa's A1 as line "A" with a route
+    that starts with the variant number ("1 P.E.FADRIQUE por TORRECED") —
+    the bus's own sign reads "A1". Returns (effective_line, clean_route).
+    Only single-letter lines are split: "PSA1"/"PSA4" already carry their
+    number in the line name and their routes' leading digit is something else.
+    """
+    line_text = str(linea or "").strip()
+    route_text = str(ruta or "").strip()
+    if len(line_text) == 1 and line_text.isalpha():
+        match = _VARIANT_PREFIX_RE.match(route_text)
+        if match:
+            return line_text.upper() + match.group(1), match.group(2).strip()
+    return line_text, route_text
+
 
 # Vigo's own open-data line-geometry file carries an official color per line
 # (used on their own maps), so we mirror it instead of inventing one. Colors
@@ -490,22 +510,30 @@ class VigoBusApi:
                         minutos = int(item.get("minutos"))
                     except (TypeError, ValueError):
                         continue
-                    if line_filter and self._normalize_line(item.get("linea")) != line_filter:
+                    eff_line, eff_route = split_line_variant(item.get("linea"), item.get("ruta"))
+                    base_norm = self._normalize_line(item.get("linea"))
+                    eff_norm = self._normalize_line(eff_line)
+                    if line_filter and line_filter not in (base_norm, eff_norm):
                         continue
                     buses.append(
                         {
-                            "linea": item.get("linea"),
-                            "ruta": item.get("ruta"),
+                            "linea": eff_line,
+                            "ruta": eff_route,
                             "metros": item.get("metros"),
                             "minutos": minutos,
-                            "color": line_colors.get(self._normalize_line(item.get("linea"))),
+                            "color": line_colors.get(eff_norm) or line_colors.get(base_norm),
                         }
                     )
             buses.sort(key=lambda item: item["minutos"])
 
-            stop_lines = sorted({
-                self._normalize_line(bus["linea"]) for bus in buses if bus.get("linea")
-            })
+            stop_lines = set()
+            for bus in buses:
+                if not bus.get("linea"):
+                    continue
+                stop_lines.add(self._normalize_line(bus["linea"]))
+                # "A1" has no alerts of its own — Vigo files them under "A".
+                stop_lines.add(self._normalize_line(bus["linea"]).rstrip("0123456789") or None)
+            stop_lines = sorted(line for line in stop_lines if line)
             alerts = []
             seen = set()
             for stop_line in stop_lines:

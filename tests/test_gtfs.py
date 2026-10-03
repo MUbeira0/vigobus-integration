@@ -1,3 +1,4 @@
+import datetime
 import importlib
 import io
 import unittest
@@ -68,6 +69,10 @@ def build_fixture_zip(**overrides):
             "S2,20260911,1\n"
             "S1,20260912,1\n"
             "S2,20260912,2\n"
+            # The service-handler tests plan for "today" (wall clock), so the
+            # fixture must be active on whatever day the suite runs.
+            f"S1,{datetime.date.today():%Y%m%d},1\n"
+            f"S2,{datetime.date.today():%Y%m%d},1\n"
         ),
         "shapes.txt": (
             "shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n"

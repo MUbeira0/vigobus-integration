@@ -9,7 +9,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
 from . import geocoding, gtfs, routing, trip_planner
-from .api import VigoBusApi
+from .api import VigoBusApi, split_line_variant
 from .const import (
     DEFAULT_ALERTS_LANG,
     DEFAULT_DEVICE_NEAREST_MAX_CANDIDATES,
@@ -267,7 +267,8 @@ async def _attach_live_first_leg(api, itinerary, now_seconds):
     for item in estimaciones:
         if not isinstance(item, dict):
             continue
-        if api._normalize_line(item.get("linea")) != target_line:
+        live_line, _live_route = split_line_variant(item.get("linea"), item.get("ruta"))
+        if api._normalize_line(live_line) != target_line:
             continue
         try:
             minutos = int(item.get("minutos"))

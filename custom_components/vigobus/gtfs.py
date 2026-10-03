@@ -20,7 +20,7 @@ import time
 import zipfile
 from collections import defaultdict
 
-from .api import haversine
+from .api import haversine, split_line_variant
 from .const import GTFS_CACHE_TTL_SECONDS, GTFS_URL, TRIP_TRANSFER_CLUSTER_RADIUS_M
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,7 +63,9 @@ def _parse_time(value):
 
 
 def _normalize_line(value):
-    return str(value or "").strip().upper().replace(" ", "")
+    # The feed has stray punctuation variants of the same line ("15A." next
+    # to "15A", "4A-", "9B.") that would otherwise show up as separate lines.
+    return str(value or "").strip().upper().replace(" ", "").rstrip(".-")
 
 
 def _build_clusters(stops):
@@ -248,11 +250,14 @@ def parse_gtfs_zip(data, logger=None):
 
         pattern_idx = len(patterns)
         route_info = routes.get(route_id, {})
+        pattern_line, pattern_headsign = split_line_variant(
+            route_info.get("line") or "", trip_headsign.get(trip_ids[0], "")
+        )
         patterns.append(
             {
                 "route_id": route_id,
-                "line": route_info.get("line") or "",
-                "headsign": trip_headsign.get(trip_ids[0], ""),
+                "line": pattern_line,
+                "headsign": pattern_headsign,
                 "stops": stop_ids,
                 "trip_ids": trip_ids,
                 "service_ids": [trip_service.get(tid, "") for tid in trip_ids],

@@ -2,6 +2,7 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import split_line_variant
 from .const import DOMAIN
 
 
@@ -226,17 +227,20 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
                 except (TypeError, ValueError):
                     continue
 
-                if line_filter and _normalize_line(bus.get("linea")) != line_filter:
+                eff_line, eff_route = split_line_variant(bus.get("linea"), bus.get("ruta"))
+                base_norm = _normalize_line(bus.get("linea"))
+                eff_norm = _normalize_line(eff_line)
+                if line_filter and line_filter not in (base_norm, eff_norm):
                     continue
 
                 line_colors = getattr(self.coordinator, "_line_colors", {}) or {}
                 valid.append(
                     {
-                        "linea": bus.get("linea"),
-                        "ruta": bus.get("ruta"),
+                        "linea": eff_line,
+                        "ruta": eff_route,
                         "metros": bus.get("metros"),
                         "minutos": minutos,
-                        "color": line_colors.get(_normalize_line(bus.get("linea"))),
+                        "color": line_colors.get(eff_norm) or line_colors.get(base_norm),
                     }
                 )
 
