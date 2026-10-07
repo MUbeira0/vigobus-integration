@@ -14,6 +14,21 @@ class SplitLineVariantTests(unittest.TestCase):
             ("A1", "P.E.FADRIQUE por TORRECED"),
         )
 
+    def test_quoted_variant_is_split_for_any_line(self):
+        self.assertEqual(
+            api.split_line_variant("A", '"1" P.E.FADRIQUE por TORRECED'),
+            ("A1", "P.E.FADRIQUE por TORRECED"),
+        )
+        self.assertEqual(
+            api.split_line_variant("A", "“1” P.E.FADRIQUE"),
+            ("A1", "P.E.FADRIQUE"),
+        )
+        self.assertEqual(api.split_line_variant("15", '"B" CENTRO'), ("15B", "CENTRO"))
+
+    def test_quoted_variant_already_in_line_is_not_duplicated(self):
+        self.assertEqual(api.split_line_variant("15", '"15B" X'), ("15B", "X"))
+        self.assertEqual(api.split_line_variant("PSA1", '"1" X'), ("PSA1", "X"))
+
     def test_plain_line_a_route_is_untouched(self):
         self.assertEqual(
             api.split_line_variant("A", "PEINADOR - AEROPORTO"),
