@@ -16,6 +16,9 @@ from .const import (
 )
 
 _VARIANT_PREFIX_RE = re.compile(r"^\s*(\d+)\s+(\S.*)$")
+_QUOTED_VARIANT_PREFIX_RE = re.compile(
+    r"^\s*[\"“”«'‘’]\s*([A-Za-z0-9]{1,4})\s*[\"“”»'‘’]\s*[-–—:]?\s*(\S.*)$"
+)
 
 
 def split_line_variant(linea, ruta):
@@ -27,6 +30,19 @@ def split_line_variant(linea, ruta):
     """
     line_text = str(linea or "").strip()
     route_text = str(ruta or "").strip()
+
+    # A variant wrapped in quotes (`"1" P.E.FADRIQUE`) is an explicit marker,
+    # so unlike the bare-digit form below it is safe for any line.
+    quoted = _QUOTED_VARIANT_PREFIX_RE.match(route_text)
+    if quoted and line_text and line_text != "-":
+        variant = quoted.group(1).upper()
+        base = line_text.upper()
+        if variant.startswith(base):
+            return variant, quoted.group(2).strip()
+        if base.endswith(variant):
+            return line_text, quoted.group(2).strip()
+        return base + variant, quoted.group(2).strip()
+
     if len(line_text) == 1 and line_text.isalpha():
         match = _VARIANT_PREFIX_RE.match(route_text)
         if match:
