@@ -1,0 +1,65 @@
+blueprint:
+  name: VigoBus - announce the bus on a speaker
+  description: >
+    Says out loud on a speaker when the bus is arriving, using text-to-speech.
+  domain: automation
+  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/blueprints/automation/vigobus/announce_bus_tts.yaml
+  input:
+    arriving_sensor:
+      name: Bus arriving sensor
+      description: The "VigoBus ... llegando" binary sensor of the stop.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              integration: vigobus
+    tts_engine:
+      name: Text-to-speech engine
+      selector:
+        entity:
+          domain: tts
+    speaker:
+      name: Speaker
+      selector:
+        entity:
+          domain: media_player
+    language:
+      name: Language
+      default: es
+      selector:
+        select:
+          options:
+            - es
+            - gl
+            - en
+    message:
+      name: Message
+      description: You can use the variables line, minutes, route and stop.
+      default: "El {{ line }} llega en {{ minutes }} minutos."
+      selector:
+        text:
+          multiline: false
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input arriving_sensor
+    to: "on"
+
+variables:
+  line: "{{ state_attr(trigger.entity_id, 'line') }}"
+  minutes: "{{ state_attr(trigger.entity_id, 'minutes') }}"
+  route: "{{ state_attr(trigger.entity_id, 'route') }}"
+  stop: "{{ state_attr(trigger.entity_id, 'stop_key') }}"
+  message_template: !input message
+
+action:
+  - action: tts.speak
+    target:
+      entity_id: !input tts_engine
+    data:
+      media_player_entity_id: !input speaker
+      language: !input language
+      message: "{{ message_template }}"

@@ -120,3 +120,39 @@ GEOCODE_CACHE_TTL_SECONDS = 60 * 60
 DEFAULT_GEOCODE_LIMIT = 5
 MIN_GEOCODE_LIMIT = 1
 MAX_GEOCODE_LIMIT = 10
+
+# --- Automation features -----------------------------------------------------
+
+# "Bus arriving" binary sensor: on when the next bus is this many minutes away
+# or less.
+DEFAULT_ARRIVING_THRESHOLD_MIN = 5
+MIN_ARRIVING_THRESHOLD_MIN = 1
+MAX_ARRIVING_THRESHOLD_MIN = 60
+
+# "Leave now": minutes of margin on top of the walk to the stop.
+DEFAULT_WALK_BUFFER_MIN = 1
+MIN_WALK_BUFFER_MIN = 0
+MAX_WALK_BUFFER_MIN = 15
+DEFAULT_NOTIFY_LEAVE_NOW = False
+
+# The walk estimate uses the straight-line distance times this factor, since
+# streets are never a straight line.
+WALK_DETOUR_FACTOR = 1.3
+
+# Dispatcher signal fired (per config entry) when a line alert appears that was
+# not there on the previous scan. The payload is the list of new alerts.
+SIGNAL_NEW_ALERTS = "vigobus_new_alerts_{}"
+
+# Commute profiles
+COMMUTE_DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+DEFAULT_COMMUTE_DAYS = ["mon", "tue", "wed", "thu", "fri"]
+DEFAULT_COMMUTE_LEAD_MIN = 20
+MIN_COMMUTE_LEAD_MIN = 5
+MAX_COMMUTE_LEAD_MIN = 120
+
+# How many recent scans the live-reliability sensor looks at.
+RELIABILITY_WINDOW = 30
+
+# Repairs
+ISSUE_STOP_MISSING = "stop_missing"
+STOP_CHECK_INTERVAL_SECONDS = 6 * 60 * 60

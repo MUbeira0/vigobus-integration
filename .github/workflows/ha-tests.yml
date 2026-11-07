@@ -1,0 +1,19 @@
+name: Home Assistant tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ha-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install Home Assistant test tooling
+        run: pip install pytest-homeassistant-custom-component hassil
+      - name: Run tests against a real Home Assistant
+        run: pytest tests_ha -q --asyncio-mode=auto

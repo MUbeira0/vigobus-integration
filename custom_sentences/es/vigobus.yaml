@@ -1,0 +1,12 @@
+language: "es"
+intents:
+  VigoBusNextBus:
+    data:
+      - sentences:
+          - "(cuándo|a qué hora|cuánto falta para que) (pasa|llega|viene|pase|llegue|venga) el (bus|autobús|autobus)"
+          - "(cuándo|a qué hora|cuánto falta para que) (pasa|llega|viene|pase|llegue|venga) el (bus|autobús|autobus) (por|en|a) [la parada] {stop}"
+          - "(cuándo|a qué hora) (pasa|llega|viene) el próximo (bus|autobús|autobus) [(por|en|a) [la parada] {stop}]"
+          - "(cuándo|a qué hora) (sale|pasa) el siguiente (bus|autobús|autobus) [(por|en|a) [la parada] {stop}]"
+lists:
+  stop:
+    wildcard: true

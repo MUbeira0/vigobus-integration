@@ -1,0 +1,59 @@
+blueprint:
+  name: VigoBus - do something when the bus is arriving
+  description: >
+    Runs your actions when the "Bus arriving" sensor of a VigoBus stop turns on
+    (the next bus is within the threshold set in the integration's options).
+    Inside your actions you can use the variables `line`, `minutes`, `route` and
+    `stop`, for example in a notification message.
+  domain: automation
+  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/blueprints/automation/vigobus/bus_arriving_notify.yaml
+  input:
+    arriving_sensor:
+      name: Bus arriving sensor
+      description: The "VigoBus ... llegando" binary sensor of the stop.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              integration: vigobus
+    only_when_home:
+      name: Only when someone is home
+      description: Skip the actions when nobody is at home.
+      default: false
+      selector:
+        boolean: {}
+    actions:
+      name: Actions
+      description: >
+        What to do, for example a notification with the message
+        "El {{ line }} llega en {{ minutes }} min."
+      selector:
+        action: {}
+
+mode: single
+max_exceeded: silent
+
+trigger_variables:
+  only_when_home: !input only_when_home
+
+trigger:
+  - platform: state
+    entity_id: !input arriving_sensor
+    to: "on"
+
+condition:
+  - condition: or
+    conditions:
+      - condition: template
+        value_template: "{{ not only_when_home }}"
+      - condition: numeric_state
+        entity_id: zone.home
+        above: 0
+
+variables:
+  line: "{{ state_attr(trigger.entity_id, 'line') }}"
+  minutes: "{{ state_attr(trigger.entity_id, 'minutes') }}"
+  route: "{{ state_attr(trigger.entity_id, 'route') }}"
+  stop: "{{ state_attr(trigger.entity_id, 'stop_key') }}"
+
+action: !input actions

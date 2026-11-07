@@ -1,9 +1,10 @@
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import split_line_variant
 from .const import DOMAIN
+from .logic import compute_leave  # noqa: F401  (re-exported for tests)
 
 
 def _normalize_line(value):
@@ -113,6 +114,23 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 coordinator, key, entry_id=entry_id, display_name=label, line_filter=line_filter
             )
         )
+        add_entity(
+            VigoBusReliabilitySensor(
+                coordinator, key, entry_id=entry_id, display_name=label, line_filter=line_filter
+            )
+        )
+        if key == "nearest" or str(key).startswith("nearest_"):
+            add_entity(
+                VigoBusLeaveInSensor(
+                    coordinator, key, entry_id=entry_id, display_name=label, line_filter=line_filter
+                )
+            )
+
+    add_entity(VigoBusStatusSensor(coordinator, entry_id))
+    for commute in entry_value("commutes", []) or []:
+        name = str(commute.get("name") or "").strip()
+        if name:
+            add_entity(VigoBusCommuteSensor(coordinator, entry_id, name))
 
     async_add_entities(entities)
 
@@ -366,3 +384,151 @@ class VigoBusUpcomingSensor(VigoBusSensor):
             items.append(f"{linea} {minutos}m")
 
         return " | ".join(items)
+
+
+class VigoBusLeaveInSensor(VigoBusSensor):
+    """Minutes until you should leave home to catch a bus you can still reach.
+
+    Uses the straight-line distance to the stop (with a detour factor) and your
+    walking speed, plus a safety buffer set in Configure. 0 means leave now.
+    """
+
+    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None, line_filter=None):
+        super().__init__(
+            coordinator, stop_key, entry_id=entry_id, display_name=display_name, line_filter=line_filter
+        )
+        key_id = str(stop_key).lower().replace(" ", "_")
+        self._attr_name = f"VigoBus {self._display_name} salir en"
+        self._attr_unique_id = f"vigobus_{self._entry_id}_{key_id}_salir_en"
+        self._attr_icon = "mdi:run"
+        self._attr_native_unit_of_measurement = "min"
+
+    def _info(self):
+        return self.coordinator.leave_info(self.stop_key, self._line_filter)
+
+    @property
+    def available(self):
+        return super().available and self._info() is not None
+
+    @property
+    def state(self):
+        info = self._info()
+        return None if not info else info["leave_in"]
+
+    @property
+    def extra_state_attributes(self):
+        info = self._info()
+        if not info:
+            return {"stop_key": self.stop_key}
+        attrs = {
+            "stop_key": self.stop_key,
+            "walk_min": info["walk_min"],
+            "buffer_min": info["buffer_min"],
+            "distance_m": info["distance_m"],
+        }
+        if info["bus"]:
+            attrs["line"] = info["bus"]["linea"]
+            attrs["bus_minutes"] = info["bus"]["minutos"]
+        if info["missed"]:
+            attrs["missed_line"] = info["missed"]["linea"]
+            attrs["missed_minutes"] = info["missed"]["minutos"]
+        return attrs
+
+
+class VigoBusReliabilitySensor(VigoBusSensor):
+    """Share of the stop's listed buses that had a live GPS position over the
+    last scans. A low value means most estimates are timetable guesses."""
+
+    def __init__(self, coordinator, stop_key, entry_id=None, display_name=None, line_filter=None):
+        super().__init__(
+            coordinator, stop_key, entry_id=entry_id, display_name=display_name, line_filter=line_filter
+        )
+        key_id = str(stop_key).lower().replace(" ", "_")
+        self._attr_name = f"VigoBus {self._display_name} fiabilidad en vivo"
+        self._attr_unique_id = f"vigobus_{self._entry_id}_{key_id}_fiabilidad"
+        self._attr_icon = "mdi:crosshairs-gps"
+        self._attr_native_unit_of_measurement = "%"
+        self._attr_entity_registry_enabled_default = False
+
+    @property
+    def available(self):
+        return True
+
+    @property
+    def state(self):
+        return self.coordinator.reliability_pct(self.stop_key)
+
+    @property
+    def extra_state_attributes(self):
+        return {"stop_key": self.stop_key}
+
+
+class VigoBusStatusSensor(CoordinatorEntity, SensorEntity):
+    """Health of the data feed: ok, alerts, degraded or offline."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["ok", "alerts", "degraded", "offline"]
+    _attr_icon = "mdi:bus-multiple"
+
+    def __init__(self, coordinator, entry_id):
+        super().__init__(coordinator)
+        self._attr_name = "VigoBus estado del servicio"
+        self._attr_unique_id = f"vigobus_{entry_id}_estado_servicio"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry_id}_servicio")},
+            name="VigoBus servicio",
+            manufacturer="VigoBus",
+            model="Servicio",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def native_value(self):
+        return self.coordinator.service_status
+
+    @property
+    def extra_state_attributes(self):
+        coordinator = self.coordinator
+        total_alerts = 0
+        for value in (coordinator.data or {}).values():
+            if isinstance(value, dict):
+                total_alerts += int(value.get("alerts_count") or 0)
+        return {
+            "consecutive_failures": coordinator._consecutive_failures,
+            "last_success_at": coordinator._last_success_at,
+            "last_error_at": coordinator._last_error_at,
+            "active_alerts": total_alerts,
+        }
+
+
+class VigoBusCommuteSensor(CoordinatorEntity, SensorEntity):
+    """The best bus option for a commute, planned shortly before you usually
+    leave. The state is the departure time; the attributes carry the summary."""
+
+    _attr_icon = "mdi:briefcase-clock"
+
+    def __init__(self, coordinator, entry_id, name):
+        super().__init__(coordinator)
+        self._commute_name = name
+        slug = "".join(ch if ch.isalnum() else "_" for ch in name.lower()).strip("_")
+        self._attr_name = f"VigoBus trayecto {name}"
+        self._attr_unique_id = f"vigobus_{entry_id}_trayecto_{slug}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry_id}_servicio")},
+            name="VigoBus servicio",
+            manufacturer="VigoBus",
+            model="Servicio",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    def _result(self):
+        return (self.coordinator.commute_results or {}).get(self._commute_name) or {}
+
+    @property
+    def native_value(self):
+        return self._result().get("depart")
+
+    @property
+    def extra_state_attributes(self):
+        result = self._result()
+        return {"commute": self._commute_name, **result}

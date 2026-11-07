@@ -101,6 +101,7 @@ def install_stubs():
 
         core.HomeAssistant = HomeAssistant
         core.SupportsResponse = SupportsResponse
+        core.callback = lambda func: func
         ha.core = _register("homeassistant.core", core)
 
         # homeassistant.helpers (+ submodules)
@@ -112,6 +113,38 @@ def install_stubs():
         helpers.aiohttp_client = _register(
             "homeassistant.helpers.aiohttp_client", aiohttp_client
         )
+
+        dispatcher_mod = types.ModuleType("homeassistant.helpers.dispatcher")
+        dispatcher_mod.async_dispatcher_send = lambda *args, **kwargs: None
+        dispatcher_mod.async_dispatcher_connect = lambda *args, **kwargs: (lambda: None)
+        helpers.dispatcher = _register("homeassistant.helpers.dispatcher", dispatcher_mod)
+
+        issue_registry_mod = types.ModuleType("homeassistant.helpers.issue_registry")
+
+        class IssueSeverity:
+            WARNING = "warning"
+            ERROR = "error"
+            CRITICAL = "critical"
+
+        issue_registry_mod.IssueSeverity = IssueSeverity
+        issue_registry_mod.async_create_issue = lambda *args, **kwargs: None
+        issue_registry_mod.async_delete_issue = lambda *args, **kwargs: None
+        helpers.issue_registry = _register(
+            "homeassistant.helpers.issue_registry", issue_registry_mod
+        )
+
+        intent_mod = types.ModuleType("homeassistant.helpers.intent")
+
+        class IntentHandler:
+            slot_schema = None
+
+            def async_validate_slots(self, slots):
+                return slots
+
+        intent_mod.IntentHandler = IntentHandler
+        intent_mod.async_register = lambda *args, **kwargs: None
+        intent_mod.async_remove = lambda *args, **kwargs: None
+        helpers.intent = _register("homeassistant.helpers.intent", intent_mod)
 
         selector_mod = types.ModuleType("homeassistant.helpers.selector")
         selector_mod.selector = lambda config: config
@@ -166,8 +199,30 @@ def install_stubs():
         class SensorEntity:
             pass
 
+        class SensorDeviceClass:
+            ENUM = "enum"
+
         sensor_mod.SensorEntity = SensorEntity
+        sensor_mod.SensorDeviceClass = SensorDeviceClass
         components.sensor = _register("homeassistant.components.sensor", sensor_mod)
+
+        binary_sensor_mod = types.ModuleType("homeassistant.components.binary_sensor")
+
+        class BinarySensorEntity:
+            pass
+
+        binary_sensor_mod.BinarySensorEntity = BinarySensorEntity
+        components.binary_sensor = _register(
+            "homeassistant.components.binary_sensor", binary_sensor_mod
+        )
+
+        event_mod = types.ModuleType("homeassistant.components.event")
+
+        class EventEntity:
+            pass
+
+        event_mod.EventEntity = EventEntity
+        components.event = _register("homeassistant.components.event", event_mod)
 
         diagnostics_mod = types.ModuleType("homeassistant.components.diagnostics")
         REDACTED = "**REDACTED**"

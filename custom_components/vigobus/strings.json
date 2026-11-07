@@ -19,7 +19,22 @@
           "alerts_max_per_stop": "Max alerts per stop",
           "notify_new_alerts_enabled": "Notify when a new alert appears"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure VigoBus",
+        "description": "Change where the nearest stops come from. Stops, notifications and commutes are kept.",
+        "data": {
+          "auto_nearest": "Auto nearest stop",
+          "nearest_name": "Nearest stop custom name",
+          "nearest_line_filter": "Nearest stop line filter (optional, e.g. C1)",
+          "nearest_devices": "Nearest stop for these devices (person / GPS tracker)",
+          "auto_nearest_devices": "Auto-create a nearest stop for every device (person / GPS tracker)",
+          "scan_interval": "Update interval (seconds)"
+        }
       }
+    },
+    "abort": {
+      "reconfigure_successful": "VigoBus was reconfigured."
     }
   },
   "options": {
@@ -34,7 +49,9 @@
           "add_stop_search": "Add stop (search)",
           "add_stops_bulk": "Add stops (paste list)",
           "remove_stop": "Remove stop",
-          "finish": "Save and finish"
+          "finish": "Save and finish",
+          "add_commute": "Add commute",
+          "remove_commute": "Remove commute"
         }
       },
       "edit_location": {
@@ -58,10 +75,16 @@
           "notify_enabled": "Enable automatic alerts",
           "notify_minutes": "Alert threshold (minutes)",
           "notify_cooldown_min": "Alert cooldown (minutes)",
-          "notify_targets": "Also send notifications to (optional)"
+          "notify_targets": "Also send notifications to (optional)",
+          "arriving_threshold_min": "Bus arriving threshold (minutes)",
+          "notify_leave_now": "Notify when it is time to leave home",
+          "walk_buffer_min": "Safety margin on the walk (minutes)"
         },
         "data_description": {
-          "notify_targets": "Pick one or more notify services/devices (e.g. your phone's mobile_app) to also receive these notifications on, in addition to the Home Assistant notifications panel. Leave empty to only use the notifications panel."
+          "notify_targets": "Pick one or more notify services/devices (e.g. your phone's mobile_app) to also receive these notifications on, in addition to the Home Assistant notifications panel. Leave empty to only use the notifications panel.",
+          "arriving_threshold_min": "The Bus arriving sensor turns on when the next bus is this close.",
+          "notify_leave_now": "Uses the walking time to the nearest stop. Sends one notification when you should leave.",
+          "walk_buffer_min": "Extra minutes added to the walk so you do not arrive just as the bus does."
         }
       },
       "edit_alerts": {
@@ -99,11 +122,49 @@
         "data": {
           "stop_choice": "Configured stops"
         }
+      },
+      "add_commute": {
+        "title": "Add commute",
+        "description": "VigoBus plans the best bus option shortly before you usually leave and notifies you.",
+        "data": {
+          "name": "Name (e.g. Work)",
+          "origin": "Leave from (home or a person)",
+          "destination_query": "Destination stop (name or id)",
+          "days": "Days",
+          "time": "Usual departure time",
+          "lead_min": "Plan this many minutes before"
+        }
+      },
+      "add_commute_select": {
+        "title": "Choose the destination stop",
+        "data": {
+          "stop_choice": "Matching stops"
+        }
+      },
+      "remove_commute": {
+        "title": "Remove commute",
+        "data": {
+          "commute": "Commutes"
+        }
       }
     },
     "error": {
       "invalid_extra_stops": "Some extra stop values are invalid. Use id,name,line | 1234 | urzaiz.",
-      "invalid_stop_search": "No matching stops found for that search."
+      "invalid_stop_search": "No matching stops found for that search.",
+      "invalid_commute": "Fill in a name, a destination and a time (HH:MM)."
+    }
+  },
+  "issues": {
+    "stop_missing": {
+      "title": "A VigoBus stop no longer exists",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Remove the missing stop",
+            "description": "The stop {name} ({stop_id}) is no longer in Vigo's stop list. Remove it from VigoBus?"
+          }
+        }
+      }
     }
   }
 }

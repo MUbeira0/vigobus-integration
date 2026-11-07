@@ -19,7 +19,22 @@
           "alerts_max_per_stop": "Máximo de avisos por parada",
           "notify_new_alerts_enabled": "Notificar cuando aparezca un aviso nuevo"
         }
-}
+      },
+      "reconfigure": {
+        "title": "Reconfigurar VigoBus",
+        "description": "Cambia de dónde salen las paradas cercanas. Las paradas, avisos y trayectos se conservan.",
+        "data": {
+          "auto_nearest": "Parada cercana automática",
+          "nearest_name": "Nombre de la parada cercana",
+          "nearest_line_filter": "Filtro de línea de la parada cercana (opcional, p. ej. C1)",
+          "nearest_devices": "Parada cercana para estos dispositivos (person / GPS)",
+          "auto_nearest_devices": "Crear una parada cercana para cada dispositivo (person / GPS)",
+          "scan_interval": "Intervalo de actualización (segundos)"
+        }
+      }
+    },
+    "abort": {
+      "reconfigure_successful": "VigoBus se ha reconfigurado."
     }
   },
   "options": {
@@ -34,7 +49,9 @@
           "add_stop_search": "Añadir parada (buscar)",
           "add_stops_bulk": "Añadir paradas (pegar lista)",
           "remove_stop": "Eliminar parada",
-          "finish": "Guardar y terminar"
+          "finish": "Guardar y terminar",
+          "add_commute": "Añadir trayecto",
+          "remove_commute": "Quitar trayecto"
         }
       },
       "edit_location": {
@@ -58,10 +75,16 @@
           "notify_enabled": "Activar alertas automáticas",
           "notify_minutes": "Umbral de alerta (minutos)",
           "notify_cooldown_min": "Espera entre alertas (minutos)",
-          "notify_targets": "Enviar también notificaciones a (opcional)"
+          "notify_targets": "Enviar también notificaciones a (opcional)",
+          "arriving_threshold_min": "Umbral de bus llegando (minutos)",
+          "notify_leave_now": "Avisar cuando toque salir de casa",
+          "walk_buffer_min": "Margen de seguridad al andar (minutos)"
         },
         "data_description": {
-          "notify_targets": "Elige uno o varios servicios/dispositivos de notificación (p. ej. el mobile_app de tu móvil) para recibir también estos avisos ahí, además del panel de notificaciones de Home Assistant. Déjalo vacío para usar solo el panel de notificaciones."
+          "notify_targets": "Elige uno o varios servicios/dispositivos de notificación (p. ej. el mobile_app de tu móvil) para recibir también estos avisos ahí, además del panel de notificaciones de Home Assistant. Déjalo vacío para usar solo el panel de notificaciones.",
+          "arriving_threshold_min": "El sensor Bus llegando se activa cuando el próximo bus está así de cerca.",
+          "notify_leave_now": "Usa el tiempo andando hasta la parada más cercana. Envía un aviso cuando debes salir.",
+          "walk_buffer_min": "Minutos extra que se suman al paseo para no llegar justo cuando pasa el bus."
         }
       },
       "edit_alerts": {
@@ -71,7 +94,7 @@
           "alerts_max_per_stop": "Máximo de avisos por parada",
           "notify_new_alerts_enabled": "Notificar cuando aparezca un aviso nuevo"
         }
-},
+      },
       "add_stop_search": {
         "title": "Buscar parada",
         "description": "Escribe nombre o ID de parada y elige una opción de la lista.",
@@ -99,11 +122,49 @@
         "data": {
           "stop_choice": "Paradas configuradas"
         }
+      },
+      "add_commute": {
+        "title": "Añadir trayecto",
+        "description": "VigoBus planifica la mejor opción de bus poco antes de que salgas y te avisa.",
+        "data": {
+          "name": "Nombre (p. ej. Trabajo)",
+          "origin": "Salir desde (casa o una persona)",
+          "destination_query": "Parada de destino (nombre o id)",
+          "days": "Días",
+          "time": "Hora habitual de salida",
+          "lead_min": "Planificar con estos minutos de antelación"
+        }
+      },
+      "add_commute_select": {
+        "title": "Elige la parada de destino",
+        "data": {
+          "stop_choice": "Paradas encontradas"
+        }
+      },
+      "remove_commute": {
+        "title": "Quitar trayecto",
+        "data": {
+          "commute": "Trayectos"
+        }
       }
     },
     "error": {
       "invalid_extra_stops": "Hay valores inválidos en paradas extra. Usa id,nombre,línea | 1234 | urzaiz.",
-      "invalid_stop_search": "No se encontraron paradas para esa búsqueda."
+      "invalid_stop_search": "No se encontraron paradas para esa búsqueda.",
+      "invalid_commute": "Rellena un nombre, un destino y una hora (HH:MM)."
+    }
+  },
+  "issues": {
+    "stop_missing": {
+      "title": "Una parada de VigoBus ya no existe",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Quitar la parada que falta",
+            "description": "La parada {name} ({stop_id}) ya no está en la lista de paradas de Vigo. ¿Quitarla de VigoBus?"
+          }
+        }
+      }
     }
   }
 }

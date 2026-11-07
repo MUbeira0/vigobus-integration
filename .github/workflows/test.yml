@@ -16,6 +16,6 @@ jobs:
       - name: Install dependencies
         run: pip install ruff pytest
       - name: Lint
-        run: ruff check custom_components/ tests/
+        run: ruff check custom_components/ tests/ tests_ha/
       - name: Test
         run: pytest tests/ -q

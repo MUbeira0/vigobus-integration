@@ -5,7 +5,7 @@
 # VigoBus Pro
 
 [![Latest release](https://img.shields.io/github/v/release/MUbeira0/vigobus-integration?sort=semver)](https://github.com/MUbeira0/vigobus-integration/releases)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1.0%2B-blue.svg)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.11.0%2B-blue.svg)](https://www.home-assistant.io/)
 [![Marketplace](https://img.shields.io/badge/HA%20Marketplace-Integration-orange.svg)](https://www.home-assistant.io/integrations/marketplace/)
 
 Home Assistant integration for the **urban buses of Vigo (Vitrasa)**: real-time arrivals, your nearest stop, extra stops, line alerts and a trip planner.
@@ -22,11 +22,12 @@ It has a companion dashboard card: [lovelace-vigobus-card](https://github.com/MU
 - **Official line colours** (`color` field on every bus) so dashboards can match the real buses.
 - **Trip planner** with transfers, from where you are to an address or place (a school, a mall, a hospital).
 - Every stop is a Home Assistant **device** with its 4 sensors grouped together.
+- **Built for automations**: *Bus arriving* and *Leave now* sensors, an alerts event, a service status sensor, commute profiles, ready-made blueprints and Assist voice commands (see *Automations*).
 - Reliability: data is cached, stops refresh concurrently, it backs off if the Vigo servers are down, and it has a **diagnostics** download for bug reports.
 
 ## Requirements
 
-- Home Assistant **2024.1.0 or newer** (brand images are bundled for 2026.3+).
+- Home Assistant **2024.11.0 or newer** (brand images are bundled for 2026.3+).
 - Internet access to the Vigo open-data servers (`datos.vigo.org`).
 
 ## Installation
@@ -62,6 +63,9 @@ Already installed with HACS? Nothing to do: Home Assistant migrates it automatic
 | Alerts language | `es` | `es` / `gl` | Language of the line alerts. |
 | Max alerts per stop | 10 | 1–25 | Limit of alerts shown per stop. |
 | Notify when a new alert appears | off | – | Optional list of `notify` services (e.g. your phone) in addition to the Home Assistant notification panel. |
+| Bus arriving threshold | 5 min | 1–60 | The *Bus arriving* sensor is on when the next bus is this close. |
+| Notify when it is time to leave | off | – | One notification when you should leave home to catch a bus (uses the walk time to the nearest stop). |
+| Safety margin on the walk | 1 min | 0–15 | Extra minutes added to the walk for *Leave now*. |
 
 **Configure** has three sections (*Location & nearest stop*, *Notifications*, *Alerts*) plus **Add stop (search)**, **Add stops (paste list)** and **Remove stop**. The pasted list is one line with entries separated by ` | `, each one `id,name,line`, for example: `1234,Urzaiz,C1 | 5678,Colón`.
 
@@ -77,6 +81,59 @@ Each stop (home, extra or per-device) is a device with four sensors:
 | Upcoming | The next buses of the stop. |
 
 Per-device sensors have the attribute `is_device_nearest`, so dashboards can tell them apart. Removing a stop's device from the UI is fine: if it is still configured, it comes back on the next reload.
+
+## Automations
+
+Everything below is meant to be used from automations, scripts and dashboards.
+
+### Extra entities
+
+Per stop (same device as its four sensors):
+
+| Entity | What it is |
+|---|---|
+| **Bus arriving** (`binary_sensor`) | On while the next bus is at most N minutes away (set in *Configure → Notifications*). Attributes: `minutes`, `line`, `route`. |
+| **Leave now** (`binary_sensor`, nearest stops only) | On when you should leave home to catch the next bus you can still reach. |
+| **Leave in** (`sensor`, `min`, nearest stops only) | Minutes until you should leave (0 = now). Attributes: `walk_min`, `bus_minutes`, `line`, `missed_line`. |
+| **Live reliability** (`sensor`, `%`, disabled by default) | Share of the listed buses that had a live GPS position over the last scans. |
+
+For the whole integration (device *VigoBus servicio*):
+
+| Entity | What it is |
+|---|---|
+| **Service status** (`sensor`) | `ok`, `alerts` (there are active line alerts), `degraded` (last scan failed) or `offline` (3 or more failed scans). |
+| **Alerts** (`event`) | Fires `new_alert` once for every alert that was not there on the previous scan, with `title`, `lines`, `start` and `end`. Works even if notifications are off. |
+| **Commute \<name\>** (`sensor`) | Departure time of the best option for that commute, planned shortly before you usually leave. |
+
+**How *Leave now* works.** The walk is the straight-line distance to the stop times 1.3 (streets are not straight) at 1.25 m/s, rounded up, plus your safety margin. The bus you can catch is the first one that is at least that far away. It is an estimate: it does not know about hills, crossings or your real walking speed.
+
+### Commutes
+
+*Configure → Add commute* lets you say "from home (or a person) to this stop, on these days, I usually leave at 08:15". Shortly before that time (20 minutes by default) VigoBus plans the best bus option, updates the *Commute* sensor and sends you a notification. It is planned once per day.
+
+### Blueprints
+
+Ready-made automations (click to import them into your Home Assistant):
+
+- [Do something when the bus is arriving](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fbus_arriving_notify.yaml)
+- [Do something when it is time to leave home](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fleave_now_notify.yaml)
+- [Do something when a new alert appears](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fnew_alert_notify.yaml)
+- [Announce the bus on a speaker](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fannounce_bus_tts.yaml)
+
+### Voice (Assist)
+
+The integration registers the `VigoBusNextBus` intent. Home Assistant turns spoken sentences into intents from sentence files, so copy the [`custom_sentences`](https://github.com/MUbeira0/vigobus-integration/tree/main/custom_sentences) folder of this repository into your Home Assistant configuration folder (so you have `config/custom_sentences/es/vigobus.yaml`, and `en` / `gl`) and restart. Then you can say, for example:
+
+- "Cuándo pasa el bus" (your home stop)
+- "Cuándo pasa el autobús por Urzaiz"
+- "When does the next bus arrive at Urzaiz"
+
+The answer is spoken in Spanish, Galician or English depending on the assistant's language. The sentences were checked against Home Assistant's sentence engine, but not yet with a real microphone and speaker.
+
+### Repairs and reconfiguring
+
+- If a configured extra stop disappears from Vigo's stop list, Home Assistant shows a **Repair** (Settings → System → Repairs) that removes it with one click. It never raises it if the list could not be downloaded.
+- **Reconfigure** (the entry menu in Devices & services) lets you change where the nearest stops come from and the update interval without removing the integration.
 
 ## Services
 
@@ -149,11 +206,12 @@ Tiene una tarjeta de dashboard complementaria: [lovelace-vigobus-card](https://g
 - **Colores oficiales de línea** (campo `color` en cada bus) para que los dashboards coincidan con los autobuses reales.
 - **Planificador de viajes** con transbordos, desde donde estás hasta una dirección o lugar (un colegio, un centro comercial, un hospital).
 - Cada parada es un **dispositivo** de Home Assistant con sus 4 sensores agrupados.
+- **Pensada para automatizaciones**: sensores *Bus llegando* y *Salir ya*, un evento de avisos, un sensor del estado del servicio, trayectos habituales, blueprints ya hechos y comandos de voz de Assist (ver *Automatizaciones*).
 - Fiabilidad: datos en caché, paradas actualizadas en paralelo, espera automática si los servidores de Vigo fallan y descarga de **diagnóstico** para reportar errores.
 
 ## Requisitos
 
-- Home Assistant **2024.1.0 o superior** (las imágenes de marca se incluyen para 2026.3+).
+- Home Assistant **2024.11.0 o superior** (las imágenes de marca se incluyen para 2026.3+).
 - Acceso a internet a los servidores de datos abiertos de Vigo (`datos.vigo.org`).
 
 ## Instalación
@@ -189,6 +247,9 @@ Desde Home Assistant **2026.11**, HACS está integrado en Home Assistant como [M
 | Idioma de los avisos | `es` | `es` / `gl` | Idioma de los avisos de línea. |
 | Máx. avisos por parada | 10 | 1–25 | Límite de avisos mostrados por parada. |
 | Notificar cuando aparezca un aviso nuevo | desactivado | – | Lista opcional de servicios `notify` (p. ej. tu móvil), además del panel de notificaciones. |
+| Umbral de bus llegando | 5 min | 1–60 | El sensor *Bus llegando* se activa cuando el próximo bus está así de cerca. |
+| Avisar cuando toque salir | desactivado | – | Un aviso cuando debes salir de casa para coger un bus (usa el tiempo andando hasta la parada cercana). |
+| Margen de seguridad al andar | 1 min | 0–15 | Minutos extra que se suman al paseo para *Salir ya*. |
 
 **Configurar** tiene tres secciones (*Ubicación y parada cercana*, *Notificaciones*, *Avisos*) más **Añadir parada (buscar)**, **Añadir paradas (pegar lista)** y **Quitar parada**. La lista pegada es una línea con entradas separadas por ` | `, cada una `id,nombre,línea`, por ejemplo: `1234,Urzaiz,C1 | 5678,Colón`.
 
@@ -204,6 +265,59 @@ Cada parada (casa, extra o de dispositivo) es un dispositivo con cuatro sensores
 | Próximos | Los siguientes buses de la parada. |
 
 Los sensores por dispositivo tienen el atributo `is_device_nearest`, para que los dashboards los distingan. Puedes quitar el dispositivo de una parada desde la interfaz: si sigue configurada, vuelve en la siguiente recarga.
+
+## Automatizaciones
+
+Todo lo de abajo está pensado para usarse desde automatizaciones, scripts y dashboards.
+
+### Entidades extra
+
+Por parada (en el mismo dispositivo que sus cuatro sensores):
+
+| Entidad | Qué es |
+|---|---|
+| **Bus llegando** (`binary_sensor`) | Activo mientras el próximo bus está a N minutos o menos (se configura en *Configurar → Notificaciones*). Atributos: `minutes`, `line`, `route`. |
+| **Salir ya** (`binary_sensor`, solo paradas cercanas) | Activo cuando debes salir de casa para coger el próximo bus que aún alcanzas. |
+| **Salir en** (`sensor`, `min`, solo paradas cercanas) | Minutos hasta que debes salir (0 = ya). Atributos: `walk_min`, `bus_minutes`, `line`, `missed_line`. |
+| **Fiabilidad en vivo** (`sensor`, `%`, desactivado por defecto) | Porcentaje de buses listados que tenían posición GPS en vivo durante los últimos escaneos. |
+
+Para toda la integración (dispositivo *VigoBus servicio*):
+
+| Entidad | Qué es |
+|---|---|
+| **Estado del servicio** (`sensor`) | `ok`, `alerts` (hay avisos de línea activos), `degraded` (el último escaneo falló) u `offline` (3 o más escaneos fallidos). |
+| **Avisos** (`event`) | Dispara `new_alert` una vez por cada aviso que no estaba en el escaneo anterior, con `title`, `lines`, `start` y `end`. Funciona aunque las notificaciones estén desactivadas. |
+| **Trayecto \<nombre\>** (`sensor`) | Hora de salida de la mejor opción de ese trayecto, planificada poco antes de que salgas. |
+
+**Cómo funciona *Salir ya*.** El paseo es la distancia en línea recta a la parada por 1,3 (las calles no son rectas) a 1,25 m/s, redondeado hacia arriba, más tu margen de seguridad. El bus que puedes coger es el primero que está al menos a esa distancia. Es una estimación: no conoce cuestas, semáforos ni tu velocidad real.
+
+### Trayectos
+
+*Configurar → Añadir trayecto* te deja decir "desde casa (o una persona) hasta esta parada, estos días, suelo salir a las 08:15". Poco antes de esa hora (20 minutos por defecto) VigoBus planifica la mejor opción de bus, actualiza el sensor *Trayecto* y te envía una notificación. Se planifica una vez al día.
+
+### Blueprints
+
+Automatizaciones ya hechas (pulsa para importarlas en tu Home Assistant):
+
+- [Hacer algo cuando llega el bus](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fbus_arriving_notify.yaml)
+- [Hacer algo cuando toca salir de casa](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fleave_now_notify.yaml)
+- [Hacer algo cuando aparece un aviso nuevo](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fnew_alert_notify.yaml)
+- [Anunciar el bus en un altavoz](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fannounce_bus_tts.yaml)
+
+### Voz (Assist)
+
+La integración registra la intención `VigoBusNextBus`. Home Assistant convierte las frases habladas en intenciones desde archivos de frases, así que copia la carpeta [`custom_sentences`](https://github.com/MUbeira0/vigobus-integration/tree/main/custom_sentences) de este repositorio a la carpeta de configuración de Home Assistant (para tener `config/custom_sentences/es/vigobus.yaml`, y `en` / `gl`) y reinicia. Después puedes decir, por ejemplo:
+
+- "Cuándo pasa el bus" (tu parada de casa)
+- "Cuándo pasa el autobús por Urzaiz"
+- "When does the next bus arrive at Urzaiz"
+
+La respuesta se dice en castellano, gallego o inglés según el idioma del asistente. Las frases se comprobaron con el motor de frases de Home Assistant, pero todavía no con un micrófono y un altavoz reales.
+
+### Reparaciones y reconfigurar
+
+- Si una parada extra configurada desaparece de la lista de paradas de Vigo, Home Assistant muestra una **Reparación** (Ajustes → Sistema → Reparaciones) que la quita con un clic. Nunca se crea si no se pudo descargar la lista.
+- **Reconfigurar** (el menú de la entrada en Dispositivos y servicios) te deja cambiar de dónde salen las paradas cercanas y el intervalo de actualización sin quitar la integración.
 
 ## Servicios
 
@@ -276,11 +390,12 @@ Ten unha tarxeta de dashboard complementaria: [lovelace-vigobus-card](https://gi
 - **Cores oficiais de liña** (campo `color` en cada bus) para que os dashboards coincidan cos autobuses reais.
 - **Planificador de viaxes** con transbordos, desde onde estás ata un enderezo ou lugar (un colexio, un centro comercial, un hospital).
 - Cada parada é un **dispositivo** de Home Assistant cos seus 4 sensores agrupados.
+- **Pensada para automatizacións**: sensores *Bus chegando* e *Saír xa*, un evento de avisos, un sensor do estado do servizo, traxectos habituais, blueprints xa feitos e comandos de voz de Assist (ver *Automatizacións*).
 - Fiabilidade: datos en caché, paradas actualizadas en paralelo, espera automática se os servidores de Vigo fallan e descarga de **diagnóstico** para reportar erros.
 
 ## Requisitos
 
-- Home Assistant **2024.1.0 ou superior** (as imaxes de marca inclúense para 2026.3+).
+- Home Assistant **2024.11.0 ou superior** (as imaxes de marca inclúense para 2026.3+).
 - Acceso a internet aos servidores de datos abertos de Vigo (`datos.vigo.org`).
 
 ## Instalación
@@ -316,6 +431,9 @@ Xa o tiñas con HACS? Non tes que facer nada: Home Assistant migrao só no prime
 | Idioma dos avisos | `es` | `es` / `gl` | Idioma dos avisos de liña. |
 | Máx. avisos por parada | 10 | 1–25 | Límite de avisos amosados por parada. |
 | Notificar cando apareza un aviso novo | desactivado | – | Lista opcional de servizos `notify` (p. ex. o teu móbil), ademais do panel de notificacións. |
+| Límite de bus chegando | 5 min | 1–60 | O sensor *Bus chegando* actívase cando o próximo bus está así de preto. |
+| Avisar cando toque saír | desactivado | – | Un aviso cando debes saír da casa para coller un bus (usa o tempo andando ata a parada próxima). |
+| Marxe de seguridade ao andar | 1 min | 0–15 | Minutos extra que se suman ao paseo para *Saír xa*. |
 
 **Configurar** ten tres seccións (*Localización e parada próxima*, *Notificacións*, *Avisos*) máis **Engadir parada (buscar)**, **Engadir paradas (pegar lista)** e **Quitar parada**. A lista pegada é unha liña con entradas separadas por ` | `, cada unha `id,nome,liña`, por exemplo: `1234,Urzaiz,C1 | 5678,Colón`.
 
@@ -331,6 +449,59 @@ Cada parada (casa, extra ou de dispositivo) é un dispositivo con catro sensores
 | Próximos | Os seguintes buses da parada. |
 
 Os sensores por dispositivo teñen o atributo `is_device_nearest`, para que os dashboards os distingan. Podes quitar o dispositivo dunha parada desde a interface: se segue configurada, volve na seguinte recarga.
+
+## Automatizacións
+
+Todo o de abaixo está pensado para usarse desde automatizacións, scripts e dashboards.
+
+### Entidades extra
+
+Por parada (no mesmo dispositivo cos seus catro sensores):
+
+| Entidade | Que é |
+|---|---|
+| **Bus chegando** (`binary_sensor`) | Activo mentres o próximo bus está a N minutos ou menos (configúrase en *Configurar → Notificacións*). Atributos: `minutes`, `line`, `route`. |
+| **Saír xa** (`binary_sensor`, só paradas próximas) | Activo cando debes saír da casa para coller o próximo bus que aínda alcanzas. |
+| **Saír en** (`sensor`, `min`, só paradas próximas) | Minutos ata que debes saír (0 = xa). Atributos: `walk_min`, `bus_minutes`, `line`, `missed_line`. |
+| **Fiabilidade en vivo** (`sensor`, `%`, desactivado por defecto) | Porcentaxe de buses listados que tiñan posición GPS en vivo durante os últimos escaneos. |
+
+Para toda a integración (dispositivo *VigoBus servicio*):
+
+| Entidade | Que é |
+|---|---|
+| **Estado do servizo** (`sensor`) | `ok`, `alerts` (hai avisos de liña activos), `degraded` (o último escaneo fallou) ou `offline` (3 ou máis escaneos fallidos). |
+| **Avisos** (`event`) | Dispara `new_alert` unha vez por cada aviso que non estaba no escaneo anterior, con `title`, `lines`, `start` e `end`. Funciona aínda que as notificacións estean desactivadas. |
+| **Traxecto \<nome\>** (`sensor`) | Hora de saída da mellor opción dese traxecto, planificada pouco antes de que saias. |
+
+**Como funciona *Saír xa*.** O paseo é a distancia en liña recta á parada por 1,3 (as rúas non son rectas) a 1,25 m/s, arredondado cara arriba, máis a túa marxe de seguridade. O bus que podes coller é o primeiro que está polo menos a esa distancia. É unha estimación: non coñece costas, semáforos nin a túa velocidade real.
+
+### Traxectos
+
+*Configurar → Engadir traxecto* déixache dicir "desde a casa (ou unha persoa) ata esta parada, estes días, adoito saír ás 08:15". Pouco antes desa hora (20 minutos por defecto) VigoBus planifica a mellor opción de bus, actualiza o sensor *Traxecto* e envíache unha notificación. Planifícase unha vez ao día.
+
+### Blueprints
+
+Automatizacións xa feitas (preme para importalas no teu Home Assistant):
+
+- [Facer algo cando chega o bus](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fbus_arriving_notify.yaml)
+- [Facer algo cando toca saír da casa](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fleave_now_notify.yaml)
+- [Facer algo cando aparece un aviso novo](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fnew_alert_notify.yaml)
+- [Anunciar o bus nun altofalante](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fannounce_bus_tts.yaml)
+
+### Voz (Assist)
+
+A integración rexistra a intención `VigoBusNextBus`. Home Assistant converte as frases faladas en intencións desde arquivos de frases, así que copia o cartafol [`custom_sentences`](https://github.com/MUbeira0/vigobus-integration/tree/main/custom_sentences) deste repositorio ao cartafol de configuración de Home Assistant (para ter `config/custom_sentences/gl/vigobus.yaml`, e `es` / `en`) e reinicia. Despois podes dicir, por exemplo:
+
+- "Cando pasa o bus" (a túa parada da casa)
+- "Cando chega o autobús en Urzaiz"
+- "When does the next bus arrive at Urzaiz"
+
+A resposta dise en castelán, galego ou inglés segundo o idioma do asistente. As frases comprobáronse co motor de frases de Home Assistant, pero aínda non cun micrófono e un altofalante reais.
+
+### Reparacións e reconfigurar
+
+- Se unha parada extra configurada desaparece da lista de paradas de Vigo, Home Assistant amosa unha **Reparación** (Axustes → Sistema → Reparacións) que a quita cun clic. Nunca se crea se non se puido descargar a lista.
+- **Reconfigurar** (o menú da entrada en Dispositivos e servizos) déixache cambiar de onde saen as paradas próximas e o intervalo de actualización sen quitar a integración.
 
 ## Servizos
 

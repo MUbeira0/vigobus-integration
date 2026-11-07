@@ -1,0 +1,58 @@
+blueprint:
+  name: VigoBus - do something when a new line alert appears
+  description: >
+    Runs your actions every time VigoBus detects a new service alert (a diversion,
+    a strike, a stop out of service...). Inside your actions you can use the
+    variables `title`, `lines`, `start` and `end`.
+  domain: automation
+  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/blueprints/automation/vigobus/new_alert_notify.yaml
+  input:
+    alert_event:
+      name: Alerts event entity
+      description: The "VigoBus avisos" event entity.
+      selector:
+        entity:
+          filter:
+            - domain: event
+              integration: vigobus
+    only_lines:
+      name: Only these lines (optional)
+      description: Comma separated, for example C1, 18A. Leave empty for every alert.
+      default: ""
+      selector:
+        text: {}
+    actions:
+      name: Actions
+      description: >
+        What to do, for example a notification with the message
+        "{{ title }} ({{ lines }})"
+      selector:
+        action: {}
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+trigger_variables:
+  only_lines: !input only_lines
+
+trigger:
+  - platform: state
+    entity_id: !input alert_event
+
+condition:
+  - condition: template
+    value_template: "{{ trigger.to_state is not none and trigger.to_state.attributes.event_type == 'new_alert' }}"
+  - condition: template
+    value_template: >
+      {% set wanted = only_lines.replace(' ', '').upper().split(',') | reject('equalto', '') | list %}
+      {% set got = (trigger.to_state.attributes.lines | default('')).replace(' ', '').upper().split(',') %}
+      {{ wanted | length == 0 or (wanted | select('in', got) | list | length > 0) }}
+
+variables:
+  title: "{{ trigger.to_state.attributes.title }}"
+  lines: "{{ trigger.to_state.attributes.lines }}"
+  start: "{{ trigger.to_state.attributes.start }}"
+  end: "{{ trigger.to_state.attributes.end }}"
+
+action: !input actions

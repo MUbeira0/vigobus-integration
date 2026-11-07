@@ -1,0 +1,12 @@
+language: "en"
+intents:
+  VigoBusNextBus:
+    data:
+      - sentences:
+          - "when (is|does) the [next ]bus (come|arrive|leave|pass)"
+          - "when (is|does) the [next ]bus (come|arrive|leave|pass) (at|by|in) [the stop] {stop}"
+          - "when (is|does) the [next ]bus (at|for) [the stop] {stop} (come|arrive|leave|pass)"
+          - "(what time|how long) (is|until) the next bus [(at|by|in) [the stop] {stop}]"
+lists:
+  stop:
+    wildcard: true

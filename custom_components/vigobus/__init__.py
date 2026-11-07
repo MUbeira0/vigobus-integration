@@ -5,6 +5,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import intent as intent_helper
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
@@ -43,10 +44,11 @@ from .const import (
 )
 from .coordinator import VigoBusCoordinator
 from .stop_catalog import _get_catalog_stops, search_stops_ranked
+from .voice import INTENT_NEXT_BUS, NextBusIntentHandler
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "binary_sensor", "event"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -56,6 +58,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    # Assist: "when does the bus come?" (one handler for all entries).
+    if not hass.data.get("vigobus_intent_registered"):
+        intent_helper.async_register(hass, NextBusIntentHandler())
+        hass.data["vigobus_intent_registered"] = True
 
     if not hass.services.has_service(DOMAIN, SERVICE_REFRESH):
         async def _handle_refresh(call):
@@ -467,6 +474,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+        if not hass.data.get(DOMAIN):
+            if hass.data.pop("vigobus_intent_registered", None):
+                try:
+                    intent_helper.async_remove(hass, INTENT_NEXT_BUS)
+                except Exception:
+                    _LOGGER.debug("VigoBus: unable to remove the Assist intent", exc_info=True)
         if not hass.data.get(DOMAIN):
             if hass.services.has_service(DOMAIN, SERVICE_REFRESH):
                 hass.services.async_remove(DOMAIN, SERVICE_REFRESH)

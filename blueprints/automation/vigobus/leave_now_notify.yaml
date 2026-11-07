@@ -1,0 +1,56 @@
+blueprint:
+  name: VigoBus - do something when it is time to leave home
+  description: >
+    Runs your actions when the "Leave now" sensor turns on, that is, when the
+    walk to the stop (plus your safety margin) matches the time left for the
+    next bus you can still catch. Inside your actions you can use the variables
+    `line`, `bus_minutes` and `walk_min`.
+  domain: automation
+  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/blueprints/automation/vigobus/leave_now_notify.yaml
+  input:
+    leave_sensor:
+      name: Leave now sensor
+      description: The "VigoBus ... salir ya" binary sensor.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              integration: vigobus
+    person:
+      name: Person (optional)
+      description: Only run when this person is at home.
+      default: []
+      selector:
+        entity:
+          domain: person
+          multiple: true
+    actions:
+      name: Actions
+      description: >
+        What to do, for example a notification with the message
+        "Sal ya: el {{ line }} llega en {{ bus_minutes }} min y tardas {{ walk_min }} min andando."
+      selector:
+        action: {}
+
+mode: single
+max_exceeded: silent
+
+trigger_variables:
+  person: !input person
+
+trigger:
+  - platform: state
+    entity_id: !input leave_sensor
+    to: "on"
+
+condition:
+  - condition: template
+    value_template: >
+      {{ person | length == 0 or person | select('is_state', 'home') | list | length > 0 }}
+
+variables:
+  line: "{{ state_attr(trigger.entity_id, 'line') }}"
+  bus_minutes: "{{ state_attr(trigger.entity_id, 'bus_minutes') }}"
+  walk_min: "{{ state_attr(trigger.entity_id, 'walk_min') }}"
+
+action: !input actions

@@ -3,26 +3,38 @@ from homeassistant import config_entries
 from homeassistant.helpers.selector import selector
 
 from .const import (
+    COMMUTE_DAYS,
     DEFAULT_ALERTS_LANG,
     DEFAULT_ALERTS_MAX_PER_STOP,
+    DEFAULT_ARRIVING_THRESHOLD_MIN,
     DEFAULT_AUTO_NEAREST_DEVICES,
+    DEFAULT_COMMUTE_DAYS,
+    DEFAULT_COMMUTE_LEAD_MIN,
     DEFAULT_NEAREST_RECALC_DISTANCE_M,
     DEFAULT_NOTIFY_COOLDOWN_MIN,
     DEFAULT_NOTIFY_ENABLED,
+    DEFAULT_NOTIFY_LEAVE_NOW,
     DEFAULT_NOTIFY_MINUTES,
     DEFAULT_NOTIFY_NEW_ALERTS_ENABLED,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_WALK_BUFFER_MIN,
     DOMAIN,
     MAX_ALERTS_MAX_PER_STOP,
+    MAX_ARRIVING_THRESHOLD_MIN,
+    MAX_COMMUTE_LEAD_MIN,
     MAX_NEAREST_RECALC_DISTANCE_M,
     MAX_NOTIFY_COOLDOWN_MIN,
     MAX_NOTIFY_MINUTES,
     MAX_SCAN_INTERVAL,
+    MAX_WALK_BUFFER_MIN,
     MIN_ALERTS_MAX_PER_STOP,
+    MIN_ARRIVING_THRESHOLD_MIN,
+    MIN_COMMUTE_LEAD_MIN,
     MIN_NEAREST_RECALC_DISTANCE_M,
     MIN_NOTIFY_COOLDOWN_MIN,
     MIN_NOTIFY_MINUTES,
     MIN_SCAN_INTERVAL,
+    MIN_WALK_BUFFER_MIN,
 )
 from .stop_catalog import (
     _CATALOG_CACHE,  # noqa: F401  (kept for tests' cache-reset access)
@@ -227,6 +239,61 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=schema,
         )
 
+    async def async_step_reconfigure(self, user_input=None):
+        """Change where the nearest stops come from without removing the entry."""
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+
+        def current(key, default=None):
+            if key in entry.options:
+                return entry.options.get(key)
+            return entry.data.get(key, default)
+
+        if user_input is not None:
+            updates = {
+                "auto_nearest": bool(user_input.get("auto_nearest", True)),
+                "nearest_name": str(user_input.get("nearest_name", "") or "").strip(),
+                "nearest_line_filter": str(user_input.get("nearest_line_filter", "") or "").strip(),
+                "nearest_devices": list(user_input.get("nearest_devices", []) or []),
+                "auto_nearest_devices": bool(
+                    user_input.get("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)
+                ),
+                "scan_interval": int(user_input.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
+            }
+            # Options override data once the user has saved Configure at
+            # least once, so write the change where it will actually apply.
+            new_data = {**entry.data, **updates}
+            new_options = {**entry.options}
+            for key, value in updates.items():
+                if key in new_options:
+                    new_options[key] = value
+            self.hass.config_entries.async_update_entry(entry, data=new_data, options=new_options)
+            return self.async_abort(reason="reconfigure_successful")
+
+        schema = vol.Schema(
+            {
+                vol.Optional("auto_nearest", default=bool(current("auto_nearest", True))): bool,
+                vol.Optional(
+                    "nearest_name", default=str(current("nearest_name", "") or "")
+                ): str,
+                vol.Optional(
+                    "nearest_line_filter", default=str(current("nearest_line_filter", "") or "")
+                ): str,
+                vol.Optional(
+                    "nearest_devices", default=list(current("nearest_devices", []) or [])
+                ): selector(
+                    {"entity": {"multiple": True, "domain": ["device_tracker", "person"]}}
+                ),
+                vol.Optional(
+                    "auto_nearest_devices",
+                    default=bool(current("auto_nearest_devices", DEFAULT_AUTO_NEAREST_DEVICES)),
+                ): bool,
+                vol.Optional(
+                    "scan_interval", default=int(current("scan_interval", DEFAULT_SCAN_INTERVAL))
+                ): vol.All(vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)),
+            }
+        )
+        return self.async_show_form(step_id="reconfigure", data_schema=schema)
+
     @staticmethod
     def async_get_options_flow(config_entry):
         return VigoBusOptionsFlow(config_entry)
@@ -240,6 +307,7 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
         self._search_choices = {}
         self._pending_custom_name = ""
         self._pending_line_filter = ""
+        self._pending_commute = None
 
     def _entry_value(self, key, default=None):
         if self._draft is not None and key in self._draft:
@@ -278,6 +346,14 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             "notify_new_alerts_enabled": bool(
                 self._entry_value("notify_new_alerts_enabled", DEFAULT_NOTIFY_NEW_ALERTS_ENABLED)
             ),
+            "arriving_threshold_min": int(
+                self._entry_value("arriving_threshold_min", DEFAULT_ARRIVING_THRESHOLD_MIN)
+            ),
+            "walk_buffer_min": int(self._entry_value("walk_buffer_min", DEFAULT_WALK_BUFFER_MIN)),
+            "notify_leave_now": bool(
+                self._entry_value("notify_leave_now", DEFAULT_NOTIFY_LEAVE_NOW)
+            ),
+            "commutes": list(self._entry_value("commutes", []) or []),
         }
 
     async def _load_catalog(self):
@@ -333,6 +409,8 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                 "add_stop_search",
                 "add_stops_bulk",
                 "remove_stop",
+                "add_commute",
+                "remove_commute",
                 "finish",
             ],
         )
@@ -407,6 +485,15 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                         user_input.get("notify_cooldown_min", DEFAULT_NOTIFY_COOLDOWN_MIN)
                     ),
                     "notify_targets": list(user_input.get("notify_targets", []) or []),
+                    "arriving_threshold_min": int(
+                        user_input.get("arriving_threshold_min", DEFAULT_ARRIVING_THRESHOLD_MIN)
+                    ),
+                    "notify_leave_now": bool(
+                        user_input.get("notify_leave_now", DEFAULT_NOTIFY_LEAVE_NOW)
+                    ),
+                    "walk_buffer_min": int(
+                        user_input.get("walk_buffer_min", DEFAULT_WALK_BUFFER_MIN)
+                    ),
                 }
             )
             return await self.async_step_init()
@@ -424,6 +511,17 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                 ): vol.All(
                     vol.Coerce(int),
                     vol.Range(min=MIN_NOTIFY_COOLDOWN_MIN, max=MAX_NOTIFY_COOLDOWN_MIN),
+                ),
+                vol.Optional(
+                    "arriving_threshold_min", default=self._draft["arriving_threshold_min"]
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_ARRIVING_THRESHOLD_MIN, max=MAX_ARRIVING_THRESHOLD_MIN),
+                ),
+                vol.Optional("notify_leave_now", default=self._draft["notify_leave_now"]): bool,
+                vol.Optional("walk_buffer_min", default=self._draft["walk_buffer_min"]): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_WALK_BUFFER_MIN, max=MAX_WALK_BUFFER_MIN),
                 ),
                 vol.Optional(
                     "notify_targets", default=self._draft["notify_targets"]
@@ -644,6 +742,132 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             }
         )
         return self.async_show_form(step_id="remove_stop", data_schema=schema, errors={})
+
+    def _origin_options(self):
+        options = ["home"]
+        hass = getattr(self, "hass", None)
+        states = getattr(hass, "states", None)
+        if states is not None:
+            try:
+                options.extend(sorted(state.entity_id for state in states.async_all("person")))
+            except Exception:
+                pass
+        return options
+
+    async def async_step_add_commute(self, user_input=None):
+        """Step 1/2: describe the commute and search for the destination stop."""
+        self._ensure_draft()
+        errors = {}
+
+        if user_input is not None:
+            name = str(user_input.get("name", "") or "").strip()
+            query = str(user_input.get("destination_query", "") or "").strip()
+            time_value = str(user_input.get("time", "") or "").strip()[:5]
+            if not name or not query or len(time_value) < 4 or ":" not in time_value:
+                errors["base"] = "invalid_commute"
+            else:
+                self._pending_commute = {
+                    "name": name,
+                    "origin": str(user_input.get("origin") or "home"),
+                    "days": list(user_input.get("days") or DEFAULT_COMMUTE_DAYS),
+                    "time": time_value,
+                    "lead_min": int(user_input.get("lead_min", DEFAULT_COMMUTE_LEAD_MIN)),
+                }
+                try:
+                    catalog = await self._load_catalog()
+                except Exception:
+                    catalog = []
+                query_norm = _normalize_text(query)
+                choices = {}
+                for stop in catalog:
+                    id_aliases_norm = stop.get("id_aliases_norm", [stop["id_norm"]])
+                    if (
+                        query_norm in id_aliases_norm
+                        or any(alias.startswith(query_norm) for alias in id_aliases_norm)
+                        or query_norm in stop["name_norm"]
+                    ):
+                        choices[f"{stop['name']} ({stop['id']})"] = {
+                            "id": stop["id"],
+                            "name": stop["name"],
+                        }
+                        if len(choices) >= 15:
+                            break
+                if not choices:
+                    errors["base"] = "invalid_stop_search"
+                else:
+                    self._search_choices = choices
+                    return await self.async_step_add_commute_select()
+
+        schema = vol.Schema(
+            {
+                vol.Required("name", default=""): str,
+                vol.Optional("origin", default="home"): selector(
+                    {
+                        "select": {
+                            "options": self._origin_options(),
+                            "custom_value": True,
+                            "mode": "dropdown",
+                        }
+                    }
+                ),
+                vol.Required("destination_query", default=""): str,
+                vol.Optional("days", default=list(DEFAULT_COMMUTE_DAYS)): selector(
+                    {"select": {"options": list(COMMUTE_DAYS), "multiple": True, "mode": "list"}}
+                ),
+                vol.Required("time", default="08:15"): selector({"time": {}}),
+                vol.Optional("lead_min", default=DEFAULT_COMMUTE_LEAD_MIN): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_COMMUTE_LEAD_MIN, max=MAX_COMMUTE_LEAD_MIN),
+                ),
+            }
+        )
+        return self.async_show_form(step_id="add_commute", data_schema=schema, errors=errors)
+
+    async def async_step_add_commute_select(self, user_input=None):
+        """Step 2/2: pick the destination stop and save the commute."""
+        self._ensure_draft()
+        pending = getattr(self, "_pending_commute", None)
+        if not self._search_choices or not pending:
+            return await self.async_step_add_commute()
+
+        options = list(self._search_choices.keys())
+
+        if user_input is not None:
+            chosen = self._search_choices.get(str(user_input.get("stop_choice", "") or ""))
+            if chosen is None:
+                return await self.async_step_add_commute()
+
+            commute = {
+                **pending,
+                "destination_stop_id": str(chosen["id"]),
+                "destination_name": str(chosen["name"]),
+            }
+            commutes = [
+                item for item in self._draft["commutes"] if item.get("name") != commute["name"]
+            ]
+            commutes.append(commute)
+            self._draft["commutes"] = commutes
+            self._search_choices = {}
+            self._pending_commute = None
+            return await self.async_step_init()
+
+        schema = vol.Schema({vol.Required("stop_choice", default=options[0]): vol.In(options)})
+        return self.async_show_form(step_id="add_commute_select", data_schema=schema, errors={})
+
+    async def async_step_remove_commute(self, user_input=None):
+        self._ensure_draft()
+        commutes = self._draft.get("commutes", [])
+        names = [str(item.get("name") or "") for item in commutes if item.get("name")]
+        if not names:
+            return await self.async_step_init()
+
+        if user_input is not None:
+            chosen = str(user_input.get("commute", "") or "")
+            self._draft["commutes"] = [item for item in commutes if item.get("name") != chosen]
+            return await self.async_step_init()
+
+        schema = vol.Schema({vol.Required("commute", default=names[0]): vol.In(names)})
+        return self.async_show_form(step_id="remove_commute", data_schema=schema, errors={})
 
     async def async_step_finish(self, user_input=None):
         self._ensure_draft()

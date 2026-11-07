@@ -1,0 +1,56 @@
+"""Event entity fired when a new line alert appears."""
+
+from homeassistant.components.event import EventEntity
+from homeassistant.core import callback
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
+from .const import DOMAIN, SIGNAL_NEW_ALERTS
+
+EVENT_NEW_ALERT = "new_alert"
+
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    async_add_entities([VigoBusAlertEvent(entry.entry_id)])
+
+
+class VigoBusAlertEvent(EventEntity):
+    """Fires ``new_alert`` once for every alert that was not there on the
+    previous scan, so automations can react without polling attributes."""
+
+    _attr_should_poll = False
+    _attr_event_types = [EVENT_NEW_ALERT]
+    _attr_icon = "mdi:bell-alert"
+
+    def __init__(self, entry_id):
+        self._entry_id = entry_id
+        self._attr_name = "VigoBus avisos"
+        self._attr_unique_id = f"vigobus_{entry_id}_avisos_evento"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry_id}_servicio")},
+            name="VigoBus servicio",
+            manufacturer="VigoBus",
+            model="Servicio",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    async def async_added_to_hass(self):
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_NEW_ALERTS.format(self._entry_id), self._handle_new_alerts
+            )
+        )
+
+    @callback
+    def _handle_new_alerts(self, alerts):
+        for alert in alerts:
+            self._trigger_event(
+                EVENT_NEW_ALERT,
+                {
+                    "title": alert.get("title"),
+                    "lines": alert.get("lineas"),
+                    "start": alert.get("inicio"),
+                    "end": alert.get("fin"),
+                },
+            )
+        self.async_write_ha_state()
