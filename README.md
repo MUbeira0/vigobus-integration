@@ -1,6 +1,6 @@
 <p align="center"><img src="https://raw.githubusercontent.com/MUbeira0/vigobus-integration/main/assets/logo.svg" alt="VigoBus Pro" width="480"></p>
 
-<p align="center"><b>English</b> · <a href="#espanol">Español</a> · <a href="#galego">Galego</a><br><sub>Español y Galego están más abajo, en este mismo documento · Español e Galego están máis abaixo, neste mesmo documento</sub></p>
+<p align="center"><img src="https://raw.githubusercontent.com/MUbeira0/vigobus-integration/main/assets/flags/en.svg" alt="English" height="16"> <b>English</b> · <img src="https://raw.githubusercontent.com/MUbeira0/vigobus-integration/main/assets/flags/es.svg" alt="Español" height="16"> <a href="#espanol">Español</a> · <img src="https://raw.githubusercontent.com/MUbeira0/vigobus-integration/main/assets/flags/gl.svg" alt="Galego" height="16"> <a href="#galego">Galego</a><br><sub>Español y Galego están más abajo, en este mismo documento · Español e Galego están máis abaixo, neste mesmo documento</sub></p>
 
 # VigoBus Pro
 
@@ -133,7 +133,7 @@ CI runs Hassfest, HACS validation, lint and tests on every push.
 
 <a id="espanol"></a>
 <details>
-<summary><h2>🇪🇸 Español</h2></summary>
+<summary><h2><img src="https://raw.githubusercontent.com/MUbeira0/vigobus-integration/main/assets/flags/es.svg" alt="Español" height="16"> Español</h2></summary>
 
 Integración de Home Assistant para los **autobuses urbanos de Vigo (Vitrasa)**: llegadas en tiempo real, tu parada más cercana, paradas extra, avisos de línea y planificador de viajes.
 
@@ -260,7 +260,7 @@ El CI ejecuta Hassfest, validación HACS, lint y tests en cada push.
 
 <a id="galego"></a>
 <details>
-<summary><h2>🏴 Galego</h2></summary>
+<summary><h2><img src="https://raw.githubusercontent.com/MUbeira0/vigobus-integration/main/assets/flags/gl.svg" alt="Galego" height="16"> Galego</h2></summary>
 
 Integración de Home Assistant para os **autobuses urbanos de Vigo (Vitrasa)**: chegadas en tempo real, a túa parada máis próxima, paradas extra, avisos de liña e planificador de viaxes.
 
