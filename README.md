@@ -1,123 +1,133 @@
+<p align="center"><img src="https://raw.githubusercontent.com/MUbeira0/vigobus-integration/main/assets/logo.svg" alt="VigoBus Pro" width="480"></p>
+
+<p align="center">
+  <b>English</b> ·
+  <a href="https://github.com/MUbeira0/vigobus-integration/blob/main/README.es.md">Español</a> ·
+  <a href="https://github.com/MUbeira0/vigobus-integration/blob/main/README.gl.md">Galego</a>
+</p>
+
 # VigoBus Pro
 
-![VigoBus Pro](https://raw.githubusercontent.com/MUbeira0/vigobus-integration/main/assets/logo.svg)
+Home Assistant integration for the **urban buses of Vigo (Vitrasa)**: real-time arrivals, your nearest stop, extra stops, line alerts and a trip planner.
 
-Custom integration for Home Assistant that exposes Vigo urban bus arrival times from Vitrasa, nearest stop support, extra stops, and line alerts.
-
-[![Latest Release](https://img.shields.io/github/v/release/MUbeira0/vigobus-integration?sort=semver)](https://github.com/MUbeira0/vigobus-integration/releases)
+[![Latest release](https://img.shields.io/github/v/release/MUbeira0/vigobus-integration?sort=semver)](https://github.com/MUbeira0/vigobus-integration/releases)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1.0%2B-blue.svg)](https://www.home-assistant.io/)
 [![Marketplace](https://img.shields.io/badge/HA%20Marketplace-Integration-orange.svg)](https://www.home-assistant.io/integrations/marketplace/)
 
-## Features
+It has a companion dashboard card: [lovelace-vigobus-card](https://github.com/MUbeira0/lovelace-vigobus-card).
 
-- Nearest stop sensor based on your home location
-- Per-device nearest stop sensors: pick `person`/`device_tracker` entities in the config menu, or auto-create one for every GPS device (home stop is kept, never removed). Each of these sensors exposes an `is_device_nearest` attribute so dashboards (like the companion card) can reliably tell them apart from the home stop or a manually configured extra stop
-- Every stop (home, extra, or per-device) is grouped as its own Home Assistant device, bundling its 4 sensors (state, line, route, upcoming) together in Settings → Devices & Services instead of a flat sensor list. Existing installs pick this up automatically on the next restart — no reconfiguration needed. A stop's device can be deleted from that page like any other device; if it's still configured (home nearest, an extra stop, a tracked person) it comes back automatically on the next reload, and if you removed it from the config it stays gone
-- Additional configurable stops
-- Arrival estimates with line, route, minutes, and bus distance
-- Optional line filter per stop (nearest or extra) so a sensor only reports arrivals for one bus line
-- Each upcoming bus is tagged with Vitrasa's own official line color (from their public line-geometry data), exposed as a `color` field per bus so dashboards can match the real livery instead of guessing
-- Line alerts in Spanish and Galician with fallback
-- Support for multiple route variants on the same line
-- Local brand images included (`custom_components/vigobus/brand`) for Home Assistant 2026.3+
-- Lovelace card support through the companion dashboard card repo
-- Stop list, line colors, and alerts are cached in memory (not re-downloaded on every scan cycle) and independent devices/stops are refreshed concurrently, so scans stay fast even with several tracked people or configured stops
-- Backs off automatically after repeated failures instead of retrying at full speed against a backend that's down, and resets to the configured interval as soon as it recovers
-- Diagnostics support: Settings → Devices & Services → VigoBus Pro → Download diagnostics gives a redacted snapshot of coordinator/config state for bug reports, without needing to paste coordinates or custom stop names
-- Optional "Notify when a new alert appears" toggle, with an optional list of notify services/devices to also send it to (in addition to the Home Assistant notifications panel)
-- Trip planner: `vigobus.geocode`, `vigobus.search_stops`, and `vigobus.plan_trip` services plan a real bus trip (with transfers) from an origin to a destination — a free-text address or named place (a school, a shopping mall, a hospital), not just an exact stop — using Vigo's official static GTFS schedule for Vitrasa and OpenStreetMap's public Nominatim geocoder. Each bus leg carries its real as-driven street geometry (from the feed's `shapes.txt`, trimmed to the boarding/alighting stop), so the companion card can draw it following the actual route instead of a straight line. Passing an optional `ors_api_key` (a free OpenRouteService key) does the same for the first/last walk legs — no free, keyless walking-routing service exists that's safe for a distributed app, so this one part is opt-in. The companion card's "Plan a trip" section (its own on/off toggle) is built on these; it returns several ranked route options, not just one. Known limitations: only the itinerary's first bus leg is cross-checked against live arrival data; a query very late at night may miss a trip that started the previous service day
+## What you get
+
+- **Real-time arrivals** for any Vigo stop: line, route, minutes, distance of the bus, and whether the estimate is live (GPS) or timetable.
+- **Nearest stop** to your home, plus **one per person/phone** you choose (or all of them automatically).
+- **Extra stops**, each with an optional line filter (e.g. only line `C1`).
+- **Line alerts** in Spanish or Galician, with optional notifications.
+- **Official line colours** (`color` field on every bus) so dashboards can match the real buses.
+- **Trip planner** with transfers, from where you are to an address or place (a school, a mall, a hospital).
+- Every stop is a Home Assistant **device** with its 4 sensors grouped together.
+- Reliability: data is cached, stops refresh concurrently, it backs off if the Vigo servers are down, and it has a **diagnostics** download for bug reports.
+
+## Requirements
+
+- Home Assistant **2024.1.0 or newer** (brand images are bundled for 2026.3+).
+- Internet access to the Vigo open-data servers (`datos.vigo.org`).
 
 ## Installation
 
-Since Home Assistant 2026.11, HACS is built into Home Assistant as the
-[Marketplace](https://www.home-assistant.io/integrations/marketplace/).
-VigoBus Pro is already in the catalog (same repository and `hacs.json` as
-before): search for **VigoBus Pro** there, install it and, if asked, restart
-Home Assistant.
+Since Home Assistant **2026.11**, HACS is built into Home Assistant as the [Marketplace](https://www.home-assistant.io/integrations/marketplace/).
 
-Installed it with HACS before? Nothing to do: Home Assistant migrates existing
-HACS installs automatically on the first start of 2026.11 and keeps updating
-them.
+1. Open the **Marketplace**, search for **VigoBus Pro** and install it.
+2. Restart Home Assistant if it asks you to.
 
-To add it manually (or on Home Assistant older than 2026.11, using HACS):
+Already installed with HACS? Nothing to do: Home Assistant migrates it automatically on the first start of 2026.11 and keeps updating it.
 
-1. Add a custom repository with the URL `https://github.com/MUbeira0/vigobus-integration`.
-2. Select the category `Integration`.
-3. Install `VigoBus Pro` and restart Home Assistant.
+**Manual / older Home Assistant (with HACS):** add `https://github.com/MUbeira0/vigobus-integration` as a custom repository, category **Integration**, then install **VigoBus Pro**.
 
-## Configuration
+## Setup
 
-Add the integration from Home Assistant UI:
+1. **Settings → Devices & services → Add integration → VigoBus Pro.**
+2. Choose how the home nearest stop works and the update interval. Everything else can be changed later.
+3. Add more stops from **Configure** (menu of the integration).
 
-- Settings
-- Devices & Services
-- Add Integration
-- Search for `VigoBus Pro`
+### Setup and Configure options
 
-First-time setup only asks what's needed for the home nearest-stop sensor —
-extra stops are added afterwards from **Configure**, which has a guided
-search-and-pick UI (and a paste-a-list option for anyone who already knows
-their stop IDs). **Configure** is also split into three focused sections
-instead of one long form: Location & nearest stop, Notifications, and
-Alerts.
+| Option | Default | Range | What it does |
+|---|---|---|---|
+| Auto nearest stop | – | – | Creates the nearest-stop sensors from your home location. |
+| Nearest stop name / line filter | empty | – | Custom name and optional line (e.g. `C1`). |
+| Nearest stop for these devices | none | – | One nearest-stop set for each `person` / `device_tracker` you pick. |
+| Auto-create for every device | off | – | Creates one for every GPS device automatically. |
+| Update interval | 30 s | 15–300 s | How often sensors refresh. |
+| Nearest recalc distance | 120 m | 20–1000 m | How far a device must move before its nearest stop is recomputed. |
+| Automatic alerts | off | – | Notify when a bus is about to arrive. |
+| Alert threshold | 5 min | 1–60 | Notify when the bus is this close. |
+| Alert cooldown | 20 min | 1–240 | Minimum time between two notifications. |
+| Alerts language | `es` | `es` / `gl` | Language of the line alerts. |
+| Max alerts per stop | 10 | 1–25 | Limit of alerts shown per stop. |
+| Notify when a new alert appears | off | – | Optional list of `notify` services (e.g. your phone) in addition to the Home Assistant notification panel. |
 
-## Supported data
-
-- Real-time ETA for Vigo urban bus stops
-- Line and route information for each next arrival
-- Remaining bus distance (when available)
-- Service alerts per line (Spanish and Galician, with fallback)
-
-## Trip planner and geocoding privacy note
-
-The `vigobus.geocode` service (used by the card's destination search) sends
-whatever text is typed there to OpenStreetMap's public Nominatim service —
-that's the only way to resolve a free-text address or place name into
-coordinates without adding a paid API key. Nothing else in this integration
-talks to a third party beyond Vigo's own open-data endpoints. Requests are
-capped at roughly one per second and cached for an hour, per Nominatim's
-usage policy; place results shown anywhere must be attributed to
-OpenStreetMap contributors (the companion card does this).
-
-## Troubleshooting
-
-- If entities do not appear after install, restart Home Assistant.
-- If icon/logo does not refresh, clear frontend cache and reload.
-- If stop IDs changed upstream, open an issue with the affected stop and line.
-
-## Support
-
-- Documentation: https://github.com/MUbeira0/vigobus-integration
-- Issues: https://github.com/MUbeira0/vigobus-integration/issues
-- Releases: https://github.com/MUbeira0/vigobus-integration/releases
+**Configure** has three sections (*Location & nearest stop*, *Notifications*, *Alerts*) plus **Add stop (search)**, **Add stops (paste list)** and **Remove stop**. The pasted list is one line with entries separated by ` | `, each one `id,name,line`, for example: `1234,Urzaiz,C1 | 5678,Colón`.
 
 ## Entities
 
-The integration creates sensors for each configured stop:
+Each stop (home, extra or per-device) is a device with four sensors:
 
-- Main stop sensor
-- Line sensor
-- Route sensor
-- Upcoming buses sensor
+| Sensor | State |
+|---|---|
+| Main stop | Minutes until the next bus (unit `min`), with the details as attributes. |
+| Line | Line of the next bus. |
+| Route | Route of the next bus. |
+| Upcoming | The next buses of the stop. |
 
-## Companion card
+Per-device sensors have the attribute `is_device_nearest`, so dashboards can tell them apart. Removing a stop's device from the UI is fine: if it is still configured, it comes back on the next reload.
 
-The dashboard card lives in its own repository, [lovelace-vigobus-card](https://github.com/MUbeira0/lovelace-vigobus-card), and is also available in the Marketplace as a `Dashboard` item.
+## Services
 
-## `vigobus.nearest_stops` service
+| Service | What it does |
+|---|---|
+| `vigobus.refresh` | Forces a refresh (optional `entry_id`; by default all entries). |
+| `vigobus.nearest_stops` | Closest stop(s) to given `latitude` / `longitude` with their buses and alerts. Optional: `tie_margin_m` (default 60), `max_candidates` (3), `line`, `lang`. |
+| `vigobus.search_stops` | Finds stops by name or id (`query`, optional `limit`). |
+| `vigobus.geocode` | Turns an address or place into coordinates (Vigo area only) using OpenStreetMap Nominatim. |
+| `vigobus.plan_trip` | Plans a bus trip with transfers using Vigo's official GTFS schedule. |
 
-Stateless lookup used by the companion card's "my location" mode: given a
-latitude/longitude it returns the closest stop(s) with their upcoming buses.
-It does not read or store any device tracker — callers (typically a
-dashboard card reading the viewing device's own live geolocation) pass
-coordinates on every call, so the result reflects whoever is looking at the
-dashboard at that moment rather than a fixed home or tracker location. When
-more than one stop is within `tie_margin_m` (default 60m) of the closest
-one, several candidates are returned instead of just one.
+All services except `refresh` are **stateless**: they only use what you pass in and store nothing. Example:
 
 ```yaml
-service: vigobus.nearest_stops
+service: vigobus.plan_trip
 data:
-  latitude: 42.2328
-  longitude: -8.7226
+  origin_latitude: 42.2328
+  origin_longitude: -8.7226
+  destination_stop_id: "5557"
+  depart_at: "18:00"      # empty = now
+  max_transfers: 2        # 0-2
+  max_walk_m: 800         # 100-2000
+  max_itineraries: 3      # 1-5
 ```
+
+Origin and destination can be coordinates or an exact `stop_id` (from `search_stops` / `nearest_stops`). Optional `ors_api_key` makes the first and last walking legs follow real streets (free key at [openrouteservice.org](https://openrouteservice.org/dev), 2000 requests/day). Known limits: only the first bus leg is checked against live data, and a trip planned just after midnight may miss a bus that started the previous service day.
+
+## Privacy
+
+`vigobus.geocode` sends the text you type to OpenStreetMap's public Nominatim service (about 1 request per second, cached for 1 hour). Results must be credited to *OpenStreetMap contributors* wherever they are shown. Nothing else talks to third parties apart from Vigo's open data and, only if you set it, OpenRouteService.
+
+## Troubleshooting
+
+- **No entities after installing:** restart Home Assistant.
+- **Icon or logo not updating:** clear the browser cache and reload.
+- **A stop's data is wrong:** open an issue with the stop id and line.
+- **Bug reports:** *Settings → Devices & services → VigoBus Pro → Download diagnostics*. The file hides coordinates and custom stop names.
+
+## Development
+
+```bash
+pip install ruff pytest
+ruff check custom_components/ tests/
+pytest tests -q
+```
+
+CI runs Hassfest, HACS validation, lint and tests on every push.
+
+## Support
+
+[Issues](https://github.com/MUbeira0/vigobus-integration/issues) · [Releases](https://github.com/MUbeira0/vigobus-integration/releases)
