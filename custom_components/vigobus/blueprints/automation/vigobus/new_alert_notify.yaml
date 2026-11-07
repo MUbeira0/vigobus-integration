@@ -5,7 +5,7 @@ blueprint:
     a strike, a stop out of service...). Inside your actions you can use the
     variables `title`, `lines`, `start` and `end`.
   domain: automation
-  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/blueprints/automation/vigobus/new_alert_notify.yaml
+  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/custom_components/vigobus/blueprints/automation/vigobus/new_alert_notify.yaml
   input:
     alert_event:
       name: Alerts event entity

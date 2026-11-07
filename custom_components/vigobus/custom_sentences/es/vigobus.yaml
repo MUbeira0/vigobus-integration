@@ -1,3 +1,4 @@
+# Managed by VigoBus Pro: this file is refreshed when the integration starts. Copy it under another name to customise it.
 language: "es"
 intents:
   VigoBusNextBus:

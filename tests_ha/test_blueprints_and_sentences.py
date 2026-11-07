@@ -1,11 +1,9 @@
-import shutil
 from pathlib import Path
 
 import pytest
 import yaml
 from homeassistant.components.blueprint import models
 from homeassistant.components.blueprint.schemas import BLUEPRINT_SCHEMA
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.setup import async_setup_component
@@ -15,7 +13,8 @@ from pytest_homeassistant_custom_component.common import async_mock_service
 from custom_components.vigobus.const import DOMAIN, SIGNAL_NEW_ALERTS
 
 ROOT = Path(__file__).resolve().parents[1]
-BLUEPRINTS = sorted((ROOT / "blueprints" / "automation" / "vigobus").glob("*.yaml"))
+PACKAGE = ROOT / "custom_components" / "vigobus"
+BLUEPRINTS = sorted((PACKAGE / "blueprints" / "automation" / "vigobus").glob("*.yaml"))
 
 
 @pytest.mark.parametrize("path", BLUEPRINTS, ids=lambda p: p.name)
@@ -30,12 +29,6 @@ def test_there_are_four_blueprints():
     assert len(BLUEPRINTS) == 4
 
 
-def _install_blueprint(hass: HomeAssistant, name):
-    target = Path(hass.config.path("blueprints/automation/vigobus"))
-    target.mkdir(parents=True, exist_ok=True)
-    shutil.copy(ROOT / "blueprints" / "automation" / "vigobus" / name, target / name)
-
-
 def _entity(hass, platform, suffix, entry):
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id(platform, DOMAIN, f"vigobus_{entry.entry_id}_{suffix}")
@@ -46,7 +39,6 @@ def _entity(hass, platform, suffix, entry):
 async def test_arriving_blueprint_runs_the_actions(hass, setup_entry, buses):
     from .conftest import make_buses
 
-    _install_blueprint(hass, "bus_arriving_notify.yaml")
     sensor = _entity(hass, "binary_sensor", "nearest_llegando", setup_entry)
     calls = async_mock_service(hass, "test", "arrived")
 
@@ -87,7 +79,6 @@ async def test_arriving_blueprint_runs_the_actions(hass, setup_entry, buses):
 
 
 async def test_new_alert_blueprint_filters_by_line(hass, setup_entry):
-    _install_blueprint(hass, "new_alert_notify.yaml")
     event = _entity(hass, "event", "avisos_evento", setup_entry)
     calls = async_mock_service(hass, "test", "alert")
 
@@ -144,7 +135,7 @@ async def test_new_alert_blueprint_filters_by_line(hass, setup_entry):
 def test_sentences_trigger_the_intent(language, text, stop):
     from hassil import Intents, recognize
 
-    data = yaml.safe_load((ROOT / "custom_sentences" / language / "vigobus.yaml").read_text(encoding="utf-8"))
+    data = yaml.safe_load((PACKAGE / "custom_sentences" / language / "vigobus.yaml").read_text(encoding="utf-8"))
     intents = Intents.from_dict(data)
     result = recognize(text, intents)
     assert result is not None, text
@@ -153,3 +144,11 @@ def test_sentences_trigger_the_intent(language, text, stop):
         assert "stop" not in result.entities
     else:
         assert result.entities["stop"].value.strip().lower() == stop.lower()
+
+
+async def test_setup_installs_blueprints_and_sentences_into_the_config(hass, setup_entry):
+    config = Path(hass.config.config_dir)
+    for name in (path.name for path in BLUEPRINTS):
+        assert (config / "blueprints" / "automation" / "vigobus" / name).is_file(), name
+    for language in ("es", "gl", "en"):
+        assert (config / "custom_sentences" / language / "vigobus.yaml").is_file(), language

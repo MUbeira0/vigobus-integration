@@ -6,7 +6,7 @@ blueprint:
     next bus you can still catch. Inside your actions you can use the variables
     `line`, `bus_minutes` and `walk_min`.
   domain: automation
-  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/blueprints/automation/vigobus/leave_now_notify.yaml
+  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/custom_components/vigobus/blueprints/automation/vigobus/leave_now_notify.yaml
   input:
     leave_sensor:
       name: Leave now sensor

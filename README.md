@@ -113,16 +113,16 @@ For the whole integration (device *VigoBus servicio*):
 
 ### Blueprints
 
-Ready-made automations (click to import them into your Home Assistant):
+Ready-made automations. They are installed for you in `config/blueprints/automation/vigobus/` every time the integration starts (Settings → Automations & scenes → Blueprints), or you can import them with a click. To customise one, copy it under another name: files with the VigoBus marker are refreshed on every start.
 
-- [Do something when the bus is arriving](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fbus_arriving_notify.yaml)
-- [Do something when it is time to leave home](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fleave_now_notify.yaml)
-- [Do something when a new alert appears](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fnew_alert_notify.yaml)
-- [Announce the bus on a speaker](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fannounce_bus_tts.yaml)
+- [Do something when the bus is arriving](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fbus_arriving_notify.yaml)
+- [Do something when it is time to leave home](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fleave_now_notify.yaml)
+- [Do something when a new alert appears](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fnew_alert_notify.yaml)
+- [Announce the bus on a speaker](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fannounce_bus_tts.yaml)
 
 ### Voice (Assist)
 
-The integration registers the `VigoBusNextBus` intent. Home Assistant turns spoken sentences into intents from sentence files, so copy the [`custom_sentences`](https://github.com/MUbeira0/vigobus-integration/tree/main/custom_sentences) folder of this repository into your Home Assistant configuration folder (so you have `config/custom_sentences/es/vigobus.yaml`, and `en` / `gl`) and restart. Then you can say, for example:
+The integration registers the `VigoBusNextBus` intent and, every time it starts, copies its sentence files into `config/custom_sentences/` (`es`, `gl` and `en`) and reloads Assist, because Home Assistant only reads sentences from there. To customise them, copy a file under another name: files with the VigoBus marker are refreshed on every start. Then you can say, for example:
 
 - "Cuándo pasa el bus" (your home stop)
 - "Cuándo pasa el autobús por Urzaiz"
@@ -297,16 +297,16 @@ Para toda la integración (dispositivo *VigoBus servicio*):
 
 ### Blueprints
 
-Automatizaciones ya hechas (pulsa para importarlas en tu Home Assistant):
+Automatizaciones ya hechas. Se instalan solas en `config/blueprints/automation/vigobus/` cada vez que arranca la integración (Ajustes → Automatizaciones y escenas → Blueprints), o puedes importarlas con un clic. Para personalizar una, cópiala con otro nombre: los archivos con la marca de VigoBus se refrescan en cada arranque.
 
-- [Hacer algo cuando llega el bus](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fbus_arriving_notify.yaml)
-- [Hacer algo cuando toca salir de casa](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fleave_now_notify.yaml)
-- [Hacer algo cuando aparece un aviso nuevo](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fnew_alert_notify.yaml)
-- [Anunciar el bus en un altavoz](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fannounce_bus_tts.yaml)
+- [Hacer algo cuando llega el bus](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fbus_arriving_notify.yaml)
+- [Hacer algo cuando toca salir de casa](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fleave_now_notify.yaml)
+- [Hacer algo cuando aparece un aviso nuevo](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fnew_alert_notify.yaml)
+- [Anunciar el bus en un altavoz](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fannounce_bus_tts.yaml)
 
 ### Voz (Assist)
 
-La integración registra la intención `VigoBusNextBus`. Home Assistant convierte las frases habladas en intenciones desde archivos de frases, así que copia la carpeta [`custom_sentences`](https://github.com/MUbeira0/vigobus-integration/tree/main/custom_sentences) de este repositorio a la carpeta de configuración de Home Assistant (para tener `config/custom_sentences/es/vigobus.yaml`, y `en` / `gl`) y reinicia. Después puedes decir, por ejemplo:
+La integración registra la intención `VigoBusNextBus` y, cada vez que arranca, copia sus archivos de frases en `config/custom_sentences/` (`es`, `gl` y `en`) y recarga Assist, porque Home Assistant solo lee las frases de ahí. Para personalizarlas, copia un archivo con otro nombre: los archivos con la marca de VigoBus se refrescan en cada arranque. Después puedes decir, por ejemplo:
 
 - "Cuándo pasa el bus" (tu parada de casa)
 - "Cuándo pasa el autobús por Urzaiz"
@@ -481,16 +481,16 @@ Para toda a integración (dispositivo *VigoBus servicio*):
 
 ### Blueprints
 
-Automatizacións xa feitas (preme para importalas no teu Home Assistant):
+Automatizacións xa feitas. Instálanse soas en `config/blueprints/automation/vigobus/` cada vez que arranca a integración (Axustes → Automatizacións e escenas → Blueprints), ou podes importalas cun clic. Para personalizar unha, cópiaa con outro nome: os arquivos coa marca de VigoBus refréscanse en cada arranque.
 
-- [Facer algo cando chega o bus](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fbus_arriving_notify.yaml)
-- [Facer algo cando toca saír da casa](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fleave_now_notify.yaml)
-- [Facer algo cando aparece un aviso novo](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fnew_alert_notify.yaml)
-- [Anunciar o bus nun altofalante](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fvigobus%2Fannounce_bus_tts.yaml)
+- [Facer algo cando chega o bus](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fbus_arriving_notify.yaml)
+- [Facer algo cando toca saír da casa](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fleave_now_notify.yaml)
+- [Facer algo cando aparece un aviso novo](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fnew_alert_notify.yaml)
+- [Anunciar o bus nun altofalante](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FMUbeira0%2Fvigobus-integration%2Fblob%2Fmain%2Fcustom_components%2Fvigobus%2Fblueprints%2Fautomation%2Fvigobus%2Fannounce_bus_tts.yaml)
 
 ### Voz (Assist)
 
-A integración rexistra a intención `VigoBusNextBus`. Home Assistant converte as frases faladas en intencións desde arquivos de frases, así que copia o cartafol [`custom_sentences`](https://github.com/MUbeira0/vigobus-integration/tree/main/custom_sentences) deste repositorio ao cartafol de configuración de Home Assistant (para ter `config/custom_sentences/gl/vigobus.yaml`, e `es` / `en`) e reinicia. Despois podes dicir, por exemplo:
+A integración rexistra a intención `VigoBusNextBus` e, cada vez que arranca, copia os seus arquivos de frases en `config/custom_sentences/` (`es`, `gl` e `en`) e recarga Assist, porque Home Assistant só le as frases de aí. Para personalizalas, copia un arquivo con outro nome: os arquivos coa marca de VigoBus refréscanse en cada arranque. Despois podes dicir, por exemplo:
 
 - "Cando pasa o bus" (a túa parada da casa)
 - "Cando chega o autobús en Urzaiz"

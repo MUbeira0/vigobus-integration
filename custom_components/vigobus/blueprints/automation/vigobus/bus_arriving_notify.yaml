@@ -6,7 +6,7 @@ blueprint:
     Inside your actions you can use the variables `line`, `minutes`, `route` and
     `stop`, for example in a notification message.
   domain: automation
-  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/blueprints/automation/vigobus/bus_arriving_notify.yaml
+  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/custom_components/vigobus/blueprints/automation/vigobus/bus_arriving_notify.yaml
   input:
     arriving_sensor:
       name: Bus arriving sensor

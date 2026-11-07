@@ -43,6 +43,7 @@ from .const import (
     SERVICE_SEARCH_STOPS,
 )
 from .coordinator import VigoBusCoordinator
+from .installer import async_install_assets
 from .stop_catalog import _get_catalog_stops, search_stops_ranked
 from .voice import INTENT_NEXT_BUS, NextBusIntentHandler
 
@@ -58,6 +59,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    # Put the bundled blueprints and Assist sentences where Home Assistant
+    # reads them (the Marketplace only installs this integration's folder).
+    await async_install_assets(hass)
 
     # Assist: "when does the bus come?" (one handler for all entries).
     if not hass.data.get("vigobus_intent_registered"):

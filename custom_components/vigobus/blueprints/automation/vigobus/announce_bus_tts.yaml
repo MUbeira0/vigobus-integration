@@ -3,7 +3,7 @@ blueprint:
   description: >
     Says out loud on a speaker when the bus is arriving, using text-to-speech.
   domain: automation
-  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/blueprints/automation/vigobus/announce_bus_tts.yaml
+  source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/custom_components/vigobus/blueprints/automation/vigobus/announce_bus_tts.yaml
   input:
     arriving_sensor:
       name: Bus arriving sensor
