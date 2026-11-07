@@ -102,3 +102,22 @@ def test_find_stop_matches_by_name_ignoring_accents_and_defaults_to_home():
     assert find_stop(hass, "plaza de espana")[1] == "Plaza de España"
     assert find_stop(hass, "plaza")[1] == "Plaza de España"
     assert find_stop(hass, "atlantida") is None
+
+
+def test_clean_slots_forgives_small_model_mistakes():
+    from custom_components.vigobus.voice import clean_slots
+
+    assert clean_slots("Urzaiz", "") == ("Urzaiz", "")
+    assert clean_slots("", "25") == ("", "25")
+    assert clean_slots("", "el 25") == ("", "25")
+    # stop name put in the line slot
+    assert clean_slots("", "Urzaiz") == ("Urzaiz", "")
+    assert clean_slots("Gran Vía", "Urzaiz") == ("Gran Vía", "")
+    # line and stop packed together
+    assert clean_slots("25 por casa", "") == ("", "25")
+    assert clean_slots("el C1 en Urzaiz", "") == ("Urzaiz", "C1")
+    assert clean_slots("18A a Gran Vía", "") == ("Gran Vía", "18A")
+    # every way of saying home
+    for word in ("casa", "Casa", "mi casa", "en casa", "aquí", "home", "mi parada"):
+        assert clean_slots(word, "") == ("", ""), word
+    assert clean_slots(None, None) == ("", "")

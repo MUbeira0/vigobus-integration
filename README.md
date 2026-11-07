@@ -130,6 +130,12 @@ The integration registers the `VigoBusNextBus` intent and, every time it starts,
 
 The answer is spoken in Spanish, Galician or English depending on the assistant's language. The sentences were checked against Home Assistant's sentence engine, but not yet with a real microphone and speaker.
 
+### AI conversation agent (Ollama, OpenAI, Google...)
+
+With a conversation agent that can use tools you can ask in natural language, for example "how long until the 25 gets to my stop?". From version 2.19.2 the integration offers the agent a `vigobus__VigoBusNextBus` tool (Home Assistant 2026.x, where integrations declare their own tools) together with a short prompt that tells the model how to fill it. In the agent's settings turn on **Control Home Assistant** (Assist) and keep **Prefer handling commands locally** on.
+
+Small local models (around 3B parameters) sometimes fill the tool wrongly, so VigoBus corrects the usual mistakes: a stop name written in the line field, "25 por casa" in the stop field, and "casa", "aquí" or "mi parada" meaning your home stop.
+
 ### Repairs and reconfiguring
 
 - If a configured extra stop disappears from Vigo's stop list, Home Assistant shows a **Repair** (Settings → System → Repairs) that removes it with one click. It never raises it if the list could not be downloaded.
@@ -314,6 +320,12 @@ La integración registra la intención `VigoBusNextBus` y, cada vez que arranca,
 
 La respuesta se dice en castellano, gallego o inglés según el idioma del asistente. Las frases se comprobaron con el motor de frases de Home Assistant, pero todavía no con un micrófono y un altavoz reales.
 
+### Agente de conversación con IA (Ollama, OpenAI, Google...)
+
+Con un agente de conversación que pueda usar herramientas puedes preguntar con lenguaje natural, por ejemplo "cuánto tarda el 25 en llegar a mi parada". Desde la versión 2.19.2 la integración le ofrece al agente una herramienta `vigobus__VigoBusNextBus` (Home Assistant 2026.x, donde las integraciones declaran sus propias herramientas) junto con unas instrucciones cortas que le dicen cómo rellenarla. En los ajustes del agente activa **Control Home Assistant** (Assist) y deja activado **Preferir gestionar comandos localmente**.
+
+Los modelos locales pequeños (de unos 3B) a veces rellenan mal la herramienta, así que VigoBus corrige los fallos habituales: un nombre de parada escrito en el campo de la línea, "25 por casa" en el campo de la parada, y "casa", "aquí" o "mi parada" como tu parada de casa.
+
 ### Reparaciones y reconfigurar
 
 - Si una parada extra configurada desaparece de la lista de paradas de Vigo, Home Assistant muestra una **Reparación** (Ajustes → Sistema → Reparaciones) que la quita con un clic. Nunca se crea si no se pudo descargar la lista.
@@ -497,6 +509,12 @@ A integración rexistra a intención `VigoBusNextBus` e, cada vez que arranca, c
 - "When does the next bus arrive at Urzaiz"
 
 A resposta dise en castelán, galego ou inglés segundo o idioma do asistente. As frases comprobáronse co motor de frases de Home Assistant, pero aínda non cun micrófono e un altofalante reais.
+
+### Axente de conversa con IA (Ollama, OpenAI, Google...)
+
+Cun axente de conversa que poida usar ferramentas podes preguntar con linguaxe natural, por exemplo "canto tarda o 25 en chegar á miña parada". Desde a versión 2.19.2 a integración ofrécelle ao axente unha ferramenta `vigobus__VigoBusNextBus` (Home Assistant 2026.x, onde as integracións declaran as súas propias ferramentas) xunto con unhas instrucións curtas que lle din como cubrila. Nos axustes do axente activa **Control Home Assistant** (Assist) e deixa activado **Preferir xestionar comandos localmente**.
+
+Os modelos locais pequenos (duns 3B) ás veces énchena mal, así que VigoBus corrixe os fallos habituais: un nome de parada escrito no campo da liña, "25 por casa" no campo da parada, e "casa", "aquí" ou "a miña parada" como a túa parada da casa.
 
 ### Reparacións e reconfigurar
 

@@ -6,10 +6,15 @@ repository ships ready-made ones in ``custom_sentences/`` (copy that folder
 into your Home Assistant config directory).
 """
 
+import re
 import unicodedata
 
-import voluptuous as vol
 from homeassistant.helpers import intent
+
+try:  # Home Assistant 2026.x validates intent slots with probatio
+    import probatio as vol
+except ImportError:  # older releases use voluptuous
+    import voluptuous as vol
 
 from .const import DOMAIN
 from .logic import estimaciones_for, normalize_line
@@ -63,6 +68,52 @@ def _texts(language):
 def _minutes_text(texts, minutes):
     key = "min_one" if minutes == 1 else "min_many"
     return texts[key].format(n=minutes)
+
+
+# Words people (and small language models) use for "my home stop".
+_HOME_WORDS = {
+    "casa",
+    "micasa",
+    "encasa",
+    "home",
+    "myhome",
+    "aqui",
+    "miparada",
+    "laparada",
+    "paradadecasa",
+    "laparadadecasa",
+    "cerca",
+}
+
+# A bus line code: 25, 18A, C1, A...
+_LINE_RE = re.compile(r"^(?:\d{1,3}[a-z]?\d?|[a-z]\d{1,2}|[a-z]{1,2})$", re.IGNORECASE)
+_LINE_PREFIX_RE = re.compile(r"^(?:el|la|linea|línea|bus|autobus|autobús)\s+", re.IGNORECASE)
+_LINE_IN_STOP_RE = re.compile(r"^(?:el\s+|la\s+)?(\S+)\s+(?:por|en|a|hasta|de)\s+(.+)$", re.IGNORECASE)
+
+
+def clean_slots(stop, line):
+    """Forgive the mistakes small language models make when filling the slots.
+
+    Returns ``(stop, line)`` where ``stop`` is empty for the home stop. It
+    handles a line given as the stop ("Urzaiz" in ``line``), both packed into
+    ``stop`` ("25 por casa") and the many ways of saying "home".
+    """
+    stop = str(stop or "").strip()
+    line = _LINE_PREFIX_RE.sub("", str(line or "").strip()).strip()
+
+    match = _LINE_IN_STOP_RE.match(stop)
+    if match and not line and _LINE_RE.match(match.group(1)):
+        line, stop = match.group(1), match.group(2).strip()
+
+    if line and not _LINE_RE.match(line):
+        # Not a line code: the model most likely put the stop name here.
+        if not stop:
+            stop = line
+        line = ""
+
+    if _norm(stop) in _HOME_WORDS:
+        stop = ""
+    return stop, line
 
 
 def _norm(value):
@@ -136,14 +187,22 @@ class NextBusIntentHandler(intent.IntentHandler):
     intent_type = INTENT_NEXT_BUS
     description = "Tells when the next VigoBus bus arrives at a stop"
     slot_schema = {
-        vol.Optional("stop"): str,
-        vol.Optional("line"): str,
+        vol.Optional(
+            "stop",
+            description="Name of the bus stop the user said. Leave empty for the user's home stop.",
+        ): str,
+        vol.Optional(
+            "line",
+            description="Bus line code the user said, for example 25, C1 or 18A. Leave empty if none.",
+        ): str,
     }
 
     async def async_handle(self, intent_obj):
         slots = self.async_validate_slots(intent_obj.slots)
-        wanted_stop = (slots.get("stop") or {}).get("value", "")
-        line = (slots.get("line") or {}).get("value", "")
+        wanted_stop, line = clean_slots(
+            (slots.get("stop") or {}).get("value", ""),
+            (slots.get("line") or {}).get("value", ""),
+        )
         language = intent_obj.language
 
         response = intent_obj.create_response()
