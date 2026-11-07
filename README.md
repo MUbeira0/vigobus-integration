@@ -1,12 +1,12 @@
 # VigoBus Pro
 
-![VigoBus Pro](assets/logo.svg)
+![VigoBus Pro](https://raw.githubusercontent.com/MUbeira0/vigobus-integration/main/assets/logo.svg)
 
 Custom integration for Home Assistant that exposes Vigo urban bus arrival times from Vitrasa, nearest stop support, extra stops, and line alerts.
 
 [![Latest Release](https://img.shields.io/github/v/release/MUbeira0/vigobus-integration?sort=semver)](https://github.com/MUbeira0/vigobus-integration/releases)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1.0%2B-blue.svg)](https://www.home-assistant.io/)
-[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
+[![Marketplace](https://img.shields.io/badge/HA%20Marketplace-Integration-orange.svg)](https://www.home-assistant.io/integrations/marketplace/)
 
 ## Features
 
@@ -27,15 +27,23 @@ Custom integration for Home Assistant that exposes Vigo urban bus arrival times 
 - Optional "Notify when a new alert appears" toggle, with an optional list of notify services/devices to also send it to (in addition to the Home Assistant notifications panel)
 - Trip planner: `vigobus.geocode`, `vigobus.search_stops`, and `vigobus.plan_trip` services plan a real bus trip (with transfers) from an origin to a destination — a free-text address or named place (a school, a shopping mall, a hospital), not just an exact stop — using Vigo's official static GTFS schedule for Vitrasa and OpenStreetMap's public Nominatim geocoder. Each bus leg carries its real as-driven street geometry (from the feed's `shapes.txt`, trimmed to the boarding/alighting stop), so the companion card can draw it following the actual route instead of a straight line. Passing an optional `ors_api_key` (a free OpenRouteService key) does the same for the first/last walk legs — no free, keyless walking-routing service exists that's safe for a distributed app, so this one part is opt-in. The companion card's "Plan a trip" section (its own on/off toggle) is built on these; it returns several ranked route options, not just one. Known limitations: only the itinerary's first bus leg is cross-checked against live arrival data; a query very late at night may miss a trip that started the previous service day
 
-## Installation with HACS
+## Installation
 
-1. Open HACS.
-2. Add a custom repository.
-3. Use the repository URL for this integration.
-4. Select the category `Integration`.
-5. Install `VigoBus Pro` and restart Home Assistant.
+Since Home Assistant 2026.11, HACS is built into Home Assistant as the
+[Marketplace](https://www.home-assistant.io/integrations/marketplace/).
+VigoBus Pro is already in the catalog (same repository and `hacs.json` as
+before): search for **VigoBus Pro** there, install it and, if asked, restart
+Home Assistant.
 
-Repository URL: `https://github.com/MUbeira0/vigobus-integration`
+Installed it with HACS before? Nothing to do: Home Assistant migrates existing
+HACS installs automatically on the first start of 2026.11 and keeps updating
+them.
+
+To add it manually (or on Home Assistant older than 2026.11, using HACS):
+
+1. Add a custom repository with the URL `https://github.com/MUbeira0/vigobus-integration`.
+2. Select the category `Integration`.
+3. Install `VigoBus Pro` and restart Home Assistant.
 
 ## Configuration
 
@@ -94,7 +102,7 @@ The integration creates sensors for each configured stop:
 
 ## Companion card
 
-The dashboard card is intended to be published as a separate HACS Dashboard repository.
+The dashboard card lives in its own repository, [lovelace-vigobus-card](https://github.com/MUbeira0/lovelace-vigobus-card), and is also available in the Marketplace as a `Dashboard` item.
 
 ## `vigobus.nearest_stops` service
 
