@@ -14,6 +14,6 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install Home Assistant test tooling
-        run: pip install pytest-homeassistant-custom-component hassil
+        run: pip install pytest-homeassistant-custom-component hassil gazetteer-matcher home-assistant-intents
       - name: Run tests against a real Home Assistant
         run: pytest tests_ha -q --asyncio-mode=auto
