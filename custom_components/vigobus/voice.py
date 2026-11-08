@@ -6,18 +6,24 @@ repository ships ready-made ones in ``custom_sentences/`` (copy that folder
 into your Home Assistant config directory).
 """
 
+import logging
 import re
 import unicodedata
 
 from homeassistant.helpers import intent
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 try:  # Home Assistant 2026.x validates intent slots with probatio
     import probatio as vol
 except ImportError:  # older releases use voluptuous
     import voluptuous as vol
 
+from . import stop_catalog
+from .api import VigoBusApi
 from .const import DOMAIN
 from .logic import estimaciones_for, normalize_line
+
+_LOGGER = logging.getLogger(__name__)
 
 INTENT_NEXT_BUS = "VigoBusNextBus"
 
@@ -33,6 +39,8 @@ _TEXT = {
         "then_now": "Después, el {line} ahora mismo.",
         "min_one": "{n} minuto",
         "min_many": "{n} minutos",
+        "hours_only": "{h} horas",
+        "hours_min": "{h} horas y {m} minutos",
     },
     "gl": {
         "none": "Non atopo ningunha parada de VigoBus.",
@@ -45,6 +53,8 @@ _TEXT = {
         "then_now": "Despois, o {line} agora mesmo.",
         "min_one": "{n} minuto",
         "min_many": "{n} minutos",
+        "hours_only": "{h} horas",
+        "hours_min": "{h} horas e {m} minutos",
     },
     "en": {
         "none": "I can't find any VigoBus stop.",
@@ -57,8 +67,14 @@ _TEXT = {
         "then_now": "Then the {line} right now.",
         "min_one": "{n} minute",
         "min_many": "{n} minutes",
+        "hours_only": "{h} hours",
+        "hours_min": "{h} hours and {m} minutes",
     },
 }
+
+# From this many minutes on, say hours: "1797 minutes" is not something anyone
+# can picture, "29 hours and 57 minutes" is.
+_HOURS_FROM_MINUTES = 120
 
 
 def _texts(language):
@@ -66,6 +82,11 @@ def _texts(language):
 
 
 def _minutes_text(texts, minutes):
+    if minutes >= _HOURS_FROM_MINUTES:
+        hours, rest = divmod(minutes, 60)
+        if rest:
+            return texts["hours_min"].format(h=hours, m=rest)
+        return texts["hours_only"].format(h=hours)
     key = "min_one" if minutes == 1 else "min_many"
     return texts[key].format(n=minutes)
 
@@ -199,21 +220,47 @@ class NextBusIntentHandler(intent.IntentHandler):
 
     async def async_handle(self, intent_obj):
         slots = self.async_validate_slots(intent_obj.slots)
-        wanted_stop, line = clean_slots(
+        text = await async_answer(
+            intent_obj.hass,
             (slots.get("stop") or {}).get("value", ""),
             (slots.get("line") or {}).get("value", ""),
+            intent_obj.language,
         )
-        language = intent_obj.language
 
         response = intent_obj.create_response()
-        texts = _texts(language)
-
-        found = find_stop(intent_obj.hass, wanted_stop)
-        if found is None:
-            text = texts["unknown_stop"].format(stop=wanted_stop) if wanted_stop else texts["none"]
-        else:
-            _coordinator, key, result = found
-            text = build_answer(result, key, line, language)
-
         response.async_set_speech(text)
         return response
+
+
+async def async_answer(hass, stop, line, language):
+    """The spoken answer to "when does the bus come?", shared by the voice
+    intent and the AI-agent tool.
+
+    The stop is looked up first among the configured ones (home, extra stops,
+    tracked devices) and, failing that, in the whole Vigo stop catalog, so any
+    stop in the city can be asked about.
+    """
+    wanted_stop, wanted_line = clean_slots(stop, line)
+    texts = _texts(language)
+
+    found = find_stop(hass, wanted_stop)
+    if found is not None:
+        _coordinator, key, result = found
+        return build_answer(result, key, wanted_line, language)
+
+    if not wanted_stop:
+        return texts["none"]
+
+    try:
+        catalog = await stop_catalog._get_catalog_stops(hass)
+        matches = stop_catalog.search_stops_ranked(wanted_stop, catalog, limit=1)
+        if matches:
+            match = matches[0]
+            api = VigoBusApi(async_get_clientsession(hass))
+            data = await api.get_estimacion(match["id"])
+            result = {"stop_name": match["name"], "data": data}
+            return build_answer(result, match["id"], wanted_line, language)
+    except Exception:
+        _LOGGER.debug("VigoBus: stop lookup failed for %r", wanted_stop, exc_info=True)
+
+    return texts["unknown_stop"].format(stop=wanted_stop)

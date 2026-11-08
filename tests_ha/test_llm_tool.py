@@ -23,7 +23,7 @@ async def api(hass, setup_entry):
 
 async def _ask(api, **args):
     result = await api.async_call_tool(llm.ToolInput(tool_name=TOOL, tool_args=args))
-    return result.data["speech"]["plain"]["speech"]
+    return result.data["answer"]
 
 
 async def test_the_tool_is_offered_to_agents(api):
@@ -49,3 +49,21 @@ async def test_line_and_home_packed_in_one_slot(api):
     speech = await _ask(api, stop="25 por casa")
     assert "Casa" in speech
     assert "25" in speech
+
+
+async def test_any_stop_in_vigo_can_be_asked_about(api):
+    # "Cruz de Maria" is not configured anywhere: it is found in the catalog.
+    speech = await _ask(api, stop="cruz de maria", line="")
+    assert "Cruz de María" in speech
+    assert "C1" in speech
+
+
+async def test_an_unknown_stop_gets_a_clear_answer(api):
+    speech = await _ask(api, stop="Atlantida", line="")
+    assert "Atlantida" in speech
+
+
+async def test_the_result_is_one_short_final_answer(api):
+    result = await api.async_call_tool(llm.ToolInput(tool_name=TOOL, tool_args={"stop": "Urzaiz"}))
+    assert list(result.data) == ["answer"]
+    assert "ONCE per question" in api.api_prompt

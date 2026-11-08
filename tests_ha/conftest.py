@@ -33,7 +33,18 @@ CATALOG = [
         "stop_id": None,
         "lat": 42.2,
         "lon": -8.7,
-    }
+    },
+    {
+        "id": "5555",
+        "name": "Cruz de María",
+        "id_norm": "5555",
+        "name_norm": "cruz de maria",
+        "id_aliases": ["5555"],
+        "id_aliases_norm": ["5555"],
+        "stop_id": None,
+        "lat": 42.21,
+        "lon": -8.71,
+    },
 ]
 
 

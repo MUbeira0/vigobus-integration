@@ -121,3 +121,12 @@ def test_clean_slots_forgives_small_model_mistakes():
     for word in ("casa", "Casa", "mi casa", "en casa", "aquí", "home", "mi parada"):
         assert clean_slots(word, "") == ("", ""), word
     assert clean_slots(None, None) == ("", "")
+
+
+def test_long_waits_are_spoken_in_hours():
+    # 90 min stays in minutes; 1797 min = 29 h 57 min; 1860 min = exactly 31 h
+    assert build_answer(_result(("25", 90, 1)), "k", "", "es") == "En Urzaiz, el 25 llega en 90 minutos."
+    assert build_answer(_result(("25", 1797, 1)), "k", "", "es") == "En Urzaiz, el 25 llega en 29 horas y 57 minutos."
+    assert "31 horas." in build_answer(_result(("25", 1860, 1)), "k", "", "es")
+    assert "29 horas e 57 minutos" in build_answer(_result(("25", 1797, 1)), "k", "", "gl")
+    assert "29 hours and 57 minutes" in build_answer(_result(("25", 1797, 1)), "k", "", "en")
