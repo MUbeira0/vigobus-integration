@@ -15,7 +15,6 @@ from homeassistant.components.llm import LLMTools
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.llm import (
     API,
-    LLM_API_ASSIST,
     APIInstance,
     LLMContext,
     Tool,
@@ -76,14 +75,13 @@ class NextBusTool(Tool):
 
 @callback
 def async_get_tools(hass: HomeAssistant, llm_context: LLMContext, api_id: str) -> LLMTools | None:
-    """Return the VigoBus tool for the Assist API while the integration is loaded."""
-    if api_id != LLM_API_ASSIST:
-        return None
+    """Offer nothing to the Assist API.
 
-    if not hass.data.get(DOMAIN):
-        return None
-
-    return LLMTools(tools=[NextBusTool()], prompt=PROMPT)
+    The tool lives in its own "VigoBus (solo autobuses)" API. Adding it to
+    Assist as well made it appear twice when both APIs were selected, which
+    confuses small models. To use it next to device control, select both APIs.
+    """
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -103,9 +101,14 @@ class VigoBusAPI(API):
     """
 
     def __init__(self, hass: HomeAssistant) -> None:
-        self.hass = hass
-        self.id = API_ID
-        self.name = "VigoBus (solo autobuses)"
+        # ``API`` is a dataclass: its constructor must run so every field
+        # (hass, id, name and requires_admin) is set. Home Assistant reads
+        # ``requires_admin`` when it combines several APIs.
+        fields = {"hass": hass, "id": API_ID, "name": "VigoBus (solo autobuses)"}
+        if "requires_admin" in getattr(API, "__dataclass_fields__", {}):
+            # Added in Home Assistant 2026.11.
+            fields["requires_admin"] = False
+        super().__init__(**fields)
 
     async def async_get_api_instance(self, llm_context: LLMContext) -> APIInstance:
         return APIInstance(

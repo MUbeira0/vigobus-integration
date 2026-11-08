@@ -18,7 +18,7 @@ async def api(hass, setup_entry):
         assistant="conversation",
         device_id=None,
     )
-    return await llm.async_get_api(hass, llm.LLM_API_ASSIST, context)
+    return await llm.async_get_api(hass, "vigobus", context)
 
 
 async def _ask(api, **args):
@@ -28,7 +28,7 @@ async def _ask(api, **args):
 
 async def test_the_tool_is_offered_to_agents(api):
     names = [tool.name for tool in api.tools]
-    assert TOOL in names
+    assert names == [TOOL]
     assert "VigoBus" in api.api_prompt
 
 
@@ -107,8 +107,9 @@ async def test_the_api_can_be_combined_with_assist(hass, setup_entry):
 
     instance = await llm.async_get_api(hass, ["assist", "vigobus"], _context())
     names = [tool.name for tool in instance.tools]
-    # Combined APIs namespace their tools; the bus tool is there, next to Assist's.
-    assert any(name.endswith(TOOL) for name in names)
+    # Combined APIs namespace their tools: the bus tool is there exactly once,
+    # next to Assist's own.
+    assert sum(name.endswith(TOOL) for name in names) == 1
     assert any("GetLiveContext" in name for name in names)
 
 
@@ -120,3 +121,42 @@ async def test_the_api_goes_away_when_the_integration_is_unloaded(hass, setup_en
     assert await hass.config_entries.async_unload(setup_entry.entry_id)
     await hass.async_block_till_done()
     assert "vigobus" not in [api.id for api in llm.async_get_apis(hass)]
+
+
+async def test_the_api_defines_every_field_home_assistant_reads(hass, setup_entry):
+    """Regression: Home Assistant 2026.11 reads requires_admin when it combines APIs.
+
+    The class is a slotted dataclass; skipping its constructor left the field
+    unset and every combined agent failed with an AttributeError.
+    """
+    api = next(item for item in llm.async_get_apis(hass) if item.id == "vigobus")
+    assert api.id == "vigobus"
+    assert api.hass is hass
+    if "requires_admin" in llm.API.__dataclass_fields__:  # added in 2026.11
+        assert api.requires_admin is False
+
+
+class _OtherAPI(llm.API):
+    async def async_get_api_instance(self, llm_context):
+        return llm.APIInstance(api=self, api_prompt="x", llm_context=llm_context, tools=[])
+
+
+async def test_combining_with_any_other_api_works(hass, setup_entry):
+    """The exact call that failed: Home Assistant merging several APIs."""
+    llm.async_register_api(hass, _OtherAPI(hass=hass, id="other", name="Other"))
+
+    instance = await llm.async_get_api(hass, ["other", "vigobus"], _context())
+
+    names = [tool.name for tool in instance.tools]
+    # The prefix of a combined tool depends on the Home Assistant version.
+    assert len(names) == 1
+    assert names[0].endswith(TOOL)
+
+
+async def test_assist_alone_does_not_get_a_duplicate_tool(hass, setup_entry):
+    assert await async_setup_component(hass, "homeassistant", {})
+    assert await async_setup_component(hass, "llm", {})
+    await hass.async_block_till_done()
+
+    instance = await llm.async_get_api(hass, llm.LLM_API_ASSIST, _context())
+    assert not any(name.endswith(TOOL) for name in (tool.name for tool in instance.tools))
