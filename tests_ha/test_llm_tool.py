@@ -67,3 +67,56 @@ async def test_the_result_is_one_short_final_answer(api):
     result = await api.async_call_tool(llm.ToolInput(tool_name=TOOL, tool_args={"stop": "Urzaiz"}))
     assert list(result.data) == ["answer"]
     assert "ONCE per question" in api.api_prompt
+
+
+# --------------------------------------------------------------------------
+# The dedicated, tiny API
+# --------------------------------------------------------------------------
+
+
+def _context():
+    return llm.LLMContext(
+        platform="ollama",
+        context=Context(),
+        language="es",
+        assistant="conversation",
+        device_id=None,
+    )
+
+
+async def test_a_dedicated_api_with_a_tiny_prompt_is_registered(hass, setup_entry):
+    assert await async_setup_component(hass, "homeassistant", {})
+    assert await async_setup_component(hass, "llm", {})
+    await hass.async_block_till_done()
+
+    assert "vigobus" in [api.id for api in llm.async_get_apis(hass)]
+
+    instance = await llm.async_get_api(hass, "vigobus", _context())
+    assert [tool.name for tool in instance.tools] == [TOOL]
+    # No entity list, no other tools: a few hundred tokens at most.
+    assert len(instance.api_prompt) < 1200
+
+    result = await instance.async_call_tool(llm.ToolInput(tool_name=TOOL, tool_args={"stop": "Urzaiz"}))
+    assert "Urzaiz" in result.data["answer"]
+
+
+async def test_the_api_can_be_combined_with_assist(hass, setup_entry):
+    assert await async_setup_component(hass, "homeassistant", {})
+    assert await async_setup_component(hass, "llm", {})
+    await hass.async_block_till_done()
+
+    instance = await llm.async_get_api(hass, ["assist", "vigobus"], _context())
+    names = [tool.name for tool in instance.tools]
+    # Combined APIs namespace their tools; the bus tool is there, next to Assist's.
+    assert any(name.endswith(TOOL) for name in names)
+    assert any("GetLiveContext" in name for name in names)
+
+
+async def test_the_api_goes_away_when_the_integration_is_unloaded(hass, setup_entry):
+    assert await async_setup_component(hass, "llm", {})
+    await hass.async_block_till_done()
+    assert "vigobus" in [api.id for api in llm.async_get_apis(hass)]
+
+    assert await hass.config_entries.async_unload(setup_entry.entry_id)
+    await hass.async_block_till_done()
+    assert "vigobus" not in [api.id for api in llm.async_get_apis(hass)]

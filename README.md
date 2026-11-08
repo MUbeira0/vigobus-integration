@@ -132,9 +132,12 @@ The answer is spoken in Spanish, Galician or English depending on the assistant'
 
 ### AI conversation agent (Ollama, OpenAI, Google...)
 
-With a conversation agent that can use tools you can ask in natural language, for example "how long until the 25 gets to my stop?". From version 2.19.2 the integration offers the agent a `vigobus__VigoBusNextBus` tool (Home Assistant 2026.x, where integrations declare their own tools) together with a short prompt that tells the model how to fill it. In the agent's settings turn on **Control Home Assistant** (Assist) and keep **Prefer handling commands locally** on.
+With a conversation agent that can use tools you can ask in natural language, for example "how long until the 25 gets to my stop?". VigoBus offers the agent a `vigobus__VigoBusNextBus` tool (Home Assistant 2026.x, where integrations declare their own tools) in two ways:
 
-Small local models (around 3B parameters) sometimes fill the tool wrongly, so VigoBus corrects the usual mistakes: a stop name written in the line field, "25 por casa" in the stop field, and "casa", "aquí" or "mi parada" meaning your home stop.
+- **A dedicated API, "VigoBus (solo autobuses)"** (version 2.19.4 or later, recommended for small local models). In the agent's settings pick it under **Control Home Assistant** instead of, or next to, Assist. The prompt is only a couple of hundred tokens.
+- **Inside the Assist API**, which also sends the model every entity you exposed. That list can be thousands of tokens. If it does not fit in the agent's context window the server cuts the prompt, the model loses the instructions and the tool's answer, and it calls the tool again and again. In Ollama's log you will see `truncating input prompt`. Expose fewer entities (Settings → Voice assistants → Expose) or raise the context window.
+
+Keep **Prefer handling commands locally** on. Small local models (around 3B parameters) sometimes fill the tool wrongly, so VigoBus corrects the usual mistakes: a stop name written in the line field, "25 por casa" in the stop field, and "casa", "aquí" or "mi parada" meaning your home stop. Any stop in Vigo can be asked about, not only the configured ones, and waits of two hours or more are spoken in hours.
 
 ### Repairs and reconfiguring
 
@@ -322,9 +325,12 @@ La respuesta se dice en castellano, gallego o inglés según el idioma del asist
 
 ### Agente de conversación con IA (Ollama, OpenAI, Google...)
 
-Con un agente de conversación que pueda usar herramientas puedes preguntar con lenguaje natural, por ejemplo "cuánto tarda el 25 en llegar a mi parada". Desde la versión 2.19.2 la integración le ofrece al agente una herramienta `vigobus__VigoBusNextBus` (Home Assistant 2026.x, donde las integraciones declaran sus propias herramientas) junto con unas instrucciones cortas que le dicen cómo rellenarla. En los ajustes del agente activa **Control Home Assistant** (Assist) y deja activado **Preferir gestionar comandos localmente**.
+Con un agente de conversación que pueda usar herramientas puedes preguntar con lenguaje natural, por ejemplo "cuánto tarda el 25 en llegar a mi parada". VigoBus le ofrece al agente una herramienta `vigobus__VigoBusNextBus` (Home Assistant 2026.x, donde las integraciones declaran sus propias herramientas) de dos formas:
 
-Los modelos locales pequeños (de unos 3B) a veces rellenan mal la herramienta, así que VigoBus corrige los fallos habituales: un nombre de parada escrito en el campo de la línea, "25 por casa" en el campo de la parada, y "casa", "aquí" o "mi parada" como tu parada de casa.
+- **Una API propia, "VigoBus (solo autobuses)"** (versión 2.19.4 o posterior, recomendada para modelos locales pequeños). En los ajustes del agente elígela en **Control Home Assistant**, en lugar de Assist o junto a él. El prompt son solo un par de cientos de tokens.
+- **Dentro de la API de Assist**, que además le manda al modelo todas las entidades que hayas expuesto. Esa lista puede ser de miles de tokens. Si no cabe en la ventana de contexto del agente, el servidor recorta el prompt, el modelo pierde las instrucciones y la respuesta de la herramienta, y la llama una y otra vez. En el registro de Ollama verás `truncating input prompt`. Expón menos entidades (Ajustes → Asistentes de voz → Exponer) o sube la ventana de contexto.
+
+Deja activado **Preferir gestionar comandos localmente**. Los modelos locales pequeños (de unos 3B) a veces rellenan mal la herramienta, así que VigoBus corrige los fallos habituales: un nombre de parada escrito en el campo de la línea, "25 por casa" en el campo de la parada, y "casa", "aquí" o "mi parada" como tu parada de casa. Se puede preguntar por cualquier parada de Vigo, no solo las configuradas, y las esperas de dos horas o más se dicen en horas.
 
 ### Reparaciones y reconfigurar
 
@@ -512,9 +518,12 @@ A resposta dise en castelán, galego ou inglés segundo o idioma do asistente. A
 
 ### Axente de conversa con IA (Ollama, OpenAI, Google...)
 
-Cun axente de conversa que poida usar ferramentas podes preguntar con linguaxe natural, por exemplo "canto tarda o 25 en chegar á miña parada". Desde a versión 2.19.2 a integración ofrécelle ao axente unha ferramenta `vigobus__VigoBusNextBus` (Home Assistant 2026.x, onde as integracións declaran as súas propias ferramentas) xunto con unhas instrucións curtas que lle din como cubrila. Nos axustes do axente activa **Control Home Assistant** (Assist) e deixa activado **Preferir xestionar comandos localmente**.
+Cun axente de conversa que poida usar ferramentas podes preguntar con linguaxe natural, por exemplo "canto tarda o 25 en chegar á miña parada". VigoBus ofrécelle ao axente unha ferramenta `vigobus__VigoBusNextBus` (Home Assistant 2026.x, onde as integracións declaran as súas propias ferramentas) de dúas formas:
 
-Os modelos locais pequenos (duns 3B) ás veces énchena mal, así que VigoBus corrixe os fallos habituais: un nome de parada escrito no campo da liña, "25 por casa" no campo da parada, e "casa", "aquí" ou "a miña parada" como a túa parada da casa.
+- **Unha API propia, "VigoBus (solo autobuses)"** (versión 2.19.4 ou posterior, recomendada para modelos locais pequenos). Nos axustes do axente elíxea en **Control Home Assistant**, en lugar de Assist ou xunto a el. O prompt son só un par de centos de tokens.
+- **Dentro da API de Assist**, que ademais lle manda ao modelo todas as entidades que expuxeses. Esa lista pode ser de miles de tokens. Se non cabe na xanela de contexto do axente, o servidor recorta o prompt, o modelo perde as instrucións e a resposta da ferramenta, e chámaa unha e outra vez. No rexistro de Ollama verás `truncating input prompt`. Expón menos entidades (Axustes → Asistentes de voz → Expoñer) ou sube a xanela de contexto.
+
+Deixa activado **Preferir xestionar comandos localmente**. Os modelos locais pequenos (duns 3B) ás veces énchena mal, así que VigoBus corrixe os fallos habituais: un nome de parada escrito no campo da liña, "25 por casa" no campo da parada, e "casa", "aquí" ou "a miña parada" como a túa parada da casa. Pódese preguntar por calquera parada de Vigo, non só as configuradas, e as esperas de dúas horas ou máis dinse en horas.
 
 ### Reparacións e reconfigurar
 

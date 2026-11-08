@@ -8,16 +8,22 @@ The tool is deliberately simple. It returns one short sentence, so a small
 model reads the answer, repeats it and stops instead of calling the tool again.
 """
 
+from collections.abc import Callable
+
 import probatio
 from homeassistant.components.llm import LLMTools
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.llm import (
+    API,
     LLM_API_ASSIST,
+    APIInstance,
     LLMContext,
     Tool,
     ToolAnnotations,
     ToolInput,
     ToolResult,
+    async_register_api,
+    selector_serializer,
 )
 
 from .const import DOMAIN
@@ -78,3 +84,40 @@ def async_get_tools(hass: HomeAssistant, llm_context: LLMContext, api_id: str) -
         return None
 
     return LLMTools(tools=[NextBusTool()], prompt=PROMPT)
+
+
+# ---------------------------------------------------------------------------
+# A small API of its own
+# ---------------------------------------------------------------------------
+
+API_ID = DOMAIN
+
+
+class VigoBusAPI(API):
+    """An LLM API with only the bus tool and a tiny prompt.
+
+    The Assist API sends the model every exposed entity, which can be thousands
+    of tokens: more than a small local model can hold, so it loses the
+    instructions and the tool answer and loops. Giving an agent just this API
+    keeps the prompt to a couple of hundred tokens.
+    """
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+        self.id = API_ID
+        self.name = "VigoBus (solo autobuses)"
+
+    async def async_get_api_instance(self, llm_context: LLMContext) -> APIInstance:
+        return APIInstance(
+            api=self,
+            api_prompt=PROMPT,
+            llm_context=llm_context,
+            tools=[NextBusTool()],
+            custom_serializer=selector_serializer,
+        )
+
+
+@callback
+def async_register_llm_api(hass: HomeAssistant) -> Callable[[], None]:
+    """Register the VigoBus API; returns the function that unregisters it."""
+    return async_register_api(hass, VigoBusAPI(hass))

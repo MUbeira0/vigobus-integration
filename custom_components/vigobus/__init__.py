@@ -64,6 +64,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # reads them (the Marketplace only installs this integration's folder).
     await async_install_assets(hass)
 
+    # A small LLM API (just the bus tool) for AI agents with little context.
+    if "vigobus_llm_unregister" not in hass.data:
+        try:
+            from .llm import async_register_llm_api
+
+            hass.data["vigobus_llm_unregister"] = async_register_llm_api(hass)
+        except Exception:
+            # Home Assistant without the LLM integration, or an API clash.
+            _LOGGER.debug("VigoBus: the LLM API was not registered", exc_info=True)
+
     # Assist: "when does the bus come?" (one handler for all entries).
     if not hass.data.get("vigobus_intent_registered"):
         intent_helper.async_register(hass, NextBusIntentHandler())
@@ -480,6 +490,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         if not hass.data.get(DOMAIN):
+            unregister_llm = hass.data.pop("vigobus_llm_unregister", None)
+            if unregister_llm is not None:
+                unregister_llm()
             if hass.data.pop("vigobus_intent_registered", None):
                 try:
                     intent_helper.async_remove(hass, INTENT_NEXT_BUS)
