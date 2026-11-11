@@ -22,7 +22,7 @@ It has a companion dashboard card: [lovelace-vigobus-card](https://github.com/MU
 - **Official line colours** (`color` field on every bus) so dashboards can match the real buses.
 - **Trip planner** with transfers, from where you are to an address or place (a school, a mall, a hospital).
 - Every stop is a Home Assistant **device** with its 4 sensors grouped together.
-- **Built for automations**: *Bus arriving* and *Leave now* sensors, an alerts event, a service status sensor, commute profiles, ready-made blueprints and Assist voice commands (see *Automations*).
+- **Built for automations**: *Bus arriving* and *Leave now* sensors, an alerts event (new, started, ended), an alerts calendar, one binary sensor per alert kind (strike, closures, detours...), a service status sensor, commute profiles, ready-made blueprints and Assist voice commands (see *Automations*).
 - Reliability: data is cached, stops refresh concurrently, it backs off if the Vigo servers are down, and it has a **diagnostics** download for bug reports.
 
 ## Requirements
@@ -224,7 +224,7 @@ Tiene una tarjeta de dashboard complementaria: [lovelace-vigobus-card](https://g
 - **Colores oficiales de línea** (campo `color` en cada bus) para que los dashboards coincidan con los autobuses reales.
 - **Planificador de viajes** con transbordos, desde donde estás hasta una dirección o lugar (un colegio, un centro comercial, un hospital).
 - Cada parada es un **dispositivo** de Home Assistant con sus 4 sensores agrupados.
-- **Pensada para automatizaciones**: sensores *Bus llegando* y *Salir ya*, un evento de avisos, un sensor del estado del servicio, trayectos habituales, blueprints ya hechos y comandos de voz de Assist (ver *Automatizaciones*).
+- **Pensada para automatizaciones**: sensores *Bus llegando* y *Salir ya*, un evento de avisos (nuevo, en vigor, terminado), un calendario de avisos, un sensor binario por tipo de aviso (huelga, cortes, desvíos...), un sensor del estado del servicio, trayectos habituales, blueprints ya hechos y comandos de voz de Assist (ver *Automatizaciones*).
 - Fiabilidad: datos en caché, paradas actualizadas en paralelo, espera automática si los servidores de Vigo fallan y descarga de **diagnóstico** para reportar errores.
 
 ## Requisitos
@@ -426,7 +426,7 @@ Ten unha tarxeta de dashboard complementaria: [lovelace-vigobus-card](https://gi
 - **Cores oficiais de liña** (campo `color` en cada bus) para que os dashboards coincidan cos autobuses reais.
 - **Planificador de viaxes** con transbordos, desde onde estás ata un enderezo ou lugar (un colexio, un centro comercial, un hospital).
 - Cada parada é un **dispositivo** de Home Assistant cos seus 4 sensores agrupados.
-- **Pensada para automatizacións**: sensores *Bus chegando* e *Saír xa*, un evento de avisos, un sensor do estado do servizo, traxectos habituais, blueprints xa feitos e comandos de voz de Assist (ver *Automatizacións*).
+- **Pensada para automatizacións**: sensores *Bus chegando* e *Saír xa*, un evento de avisos (novo, en vigor, rematado), un calendario de avisos, un sensor binario por tipo de aviso (folga, cortes, desvíos...), un sensor do estado do servizo, traxectos habituais, blueprints xa feitos e comandos de voz de Assist (ver *Automatizacións*).
 - Fiabilidade: datos en caché, paradas actualizadas en paralelo, espera automática se os servidores de Vigo fallan e descarga de **diagnóstico** para reportar erros.
 
 ## Requisitos
