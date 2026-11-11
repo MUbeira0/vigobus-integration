@@ -307,6 +307,9 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
         attrs["is_device_nearest"] = self.stop_key != "nearest" and self.stop_key.startswith("nearest_")
         attrs["updated_at"] = entry_data.get("updated_at")
         attrs["lines"] = entry_data.get("lines", [])
+        # Set when the closest stop had no buses and another nearby stop is
+        # being shown instead (see the coordinator's nearest fallback).
+        attrs["fallback_stop"] = entry_data.get("fallback")
         attrs["alerts"] = entry_data.get("alerts", [])
         attrs["alerts_count"] = entry_data.get("alerts_count", 0)
         attrs["stale"] = bool(entry_data.get("stale", False))

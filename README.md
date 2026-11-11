@@ -82,6 +82,9 @@ Each stop (home, extra or per-device) is a device with four sensors:
 
 Per-device sensors have the attribute `is_device_nearest`, so dashboards can tell them apart. Removing a stop's device from the UI is fine: if it is still configured, it comes back on the next reload.
 
+
+If the closest stop has no buses at all at that moment, the nearest sensor shows the next closest stop (within 250 m of it) that does, and says so in its `fallback_stop` attribute, instead of staying on `unknown`. The closest stop is checked first on every scan.
+
 ## Automations
 
 Everything below is meant to be used from automations, scripts and dashboards.
@@ -277,6 +280,9 @@ Cada parada (casa, extra o de dispositivo) es un dispositivo con cuatro sensores
 
 Los sensores por dispositivo tienen el atributo `is_device_nearest`, para que los dashboards los distingan. Puedes quitar el dispositivo de una parada desde la interfaz: si sigue configurada, vuelve en la siguiente recarga.
 
+
+Si la parada más cercana no tiene ningún bus en ese momento, el sensor de parada cercana muestra la siguiente más cercana (a menos de 250 m de ella) que sí tenga, y lo indica en su atributo `fallback_stop`, en lugar de quedarse en `unknown`. En cada escaneo se prueba primero la más cercana.
+
 ## Automatizaciones
 
 Todo lo de abajo está pensado para usarse desde automatizaciones, scripts y dashboards.
@@ -471,6 +477,9 @@ Cada parada (casa, extra ou de dispositivo) é un dispositivo con catro sensores
 | Próximos | Os seguintes buses da parada. |
 
 Os sensores por dispositivo teñen o atributo `is_device_nearest`, para que os dashboards os distingan. Podes quitar o dispositivo dunha parada desde a interface: se segue configurada, volve na seguinte recarga.
+
+
+Se a parada máis próxima non ten ningún bus nese momento, o sensor de parada próxima amosa a seguinte máis próxima (a menos de 250 m dela) que si o teña, e indícao no seu atributo `fallback_stop`, en vez de quedar en `unknown`. En cada escaneo próbase primeiro a máis próxima.
 
 ## Automatizacións
 

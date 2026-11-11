@@ -3,7 +3,9 @@ blueprint:
   description: >
     Runs your actions every time VigoBus detects a new service alert (a diversion,
     a strike, a stop out of service...). Inside your actions you can use the
-    variables `title`, `lines`, `start` and `end`.
+    variables `title`, `lines`, `start`, `end`, `id`, `description`, `kind`
+    (strike, closure, detour, stop_closed, works, schedule or info) and `status`
+    (active or upcoming).
   domain: automation
   source_url: https://github.com/MUbeira0/vigobus-integration/blob/main/custom_components/vigobus/blueprints/automation/vigobus/new_alert_notify.yaml
   input:
@@ -25,7 +27,7 @@ blueprint:
       name: Actions
       description: >
         What to do, for example a notification with the message
-        "{{ title }} ({{ lines }})"
+        "{{ title }} ({{ lines }})", or "{{ description }}" for the full text
       selector:
         action: {}
 
@@ -54,5 +56,9 @@ variables:
   lines: "{{ trigger.to_state.attributes.lines }}"
   start: "{{ trigger.to_state.attributes.start }}"
   end: "{{ trigger.to_state.attributes.end }}"
+  id: "{{ trigger.to_state.attributes.id | default('') }}"
+  description: "{{ trigger.to_state.attributes.description | default('') }}"
+  kind: "{{ trigger.to_state.attributes.kind | default('info') }}"
+  status: "{{ trigger.to_state.attributes.status | default('active') }}"
 
 action: !input actions
