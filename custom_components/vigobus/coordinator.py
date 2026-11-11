@@ -42,6 +42,11 @@ _LOGGER = logging.getLogger(__name__)
 # Consecutive good scans an alert must be absent before it is forgotten.
 ALERT_FORGET_CYCLES = 3
 
+# When the closest stop has no buses at all (a stop nothing serves right now),
+# the "nearest" sensor looks at the next closest stops within this margin of it.
+NEAREST_FALLBACK_MARGIN_M = 250
+NEAREST_FALLBACK_MAX_CANDIDATES = 4
+
 # After this many consecutive failures, start backing off from the
 # configured scan_interval instead of retrying at full speed against a
 # backend that's clearly down — being a better citizen toward a public API
@@ -219,13 +224,28 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             _LOGGER.warning("Nearest stop found for %s but no stop ID key was detected", key)
             return None
 
+        data = await self.api.get_estimacion(stop_id)
+        fallback = None
+        if not estimaciones_for({"data": data}):
+            found = await self._fallback_stop_with_buses(lat, lon, stop_id)
+            if found:
+                fallback_stop, data = found
+                fallback = {
+                    "from_stop_id": stop_id,
+                    "stop_id": self._extract_stop_id(fallback_stop),
+                    "stop_name": fallback_stop.get("nombre") or fallback_stop.get("name"),
+                }
+                stop = fallback_stop
+
         entry = {
             "stop": stop,
             "stop_name": name,
             "display_name": name,
             "updated_at": updated_at,
-            "data": await self.api.get_estimacion(stop_id),
+            "data": data,
         }
+        if fallback:
+            entry["fallback"] = fallback
         stop_lat = stop.get("latitud")
         stop_lon = stop.get("longitud")
         if stop_lat is not None and stop_lon is not None:
@@ -237,6 +257,39 @@ class VigoBusCoordinator(DataUpdateCoordinator):
                 pass
         self._attach_alerts(entry, alerts_index)
         return entry
+
+    async def _fallback_stop_with_buses(self, lat, lon, tried_stop_id):
+        """Closest other stop that currently has buses, or None.
+
+        Only used when the closest stop returns nothing, so a nearest sensor
+        doesn't sit on "unknown" next to a stop that does have service. The
+        closest stop is still tried first on every scan: this never replaces
+        the stop the sensor is anchored to, it only borrows another one for
+        the scan when the anchor is empty.
+        """
+        try:
+            candidates = await self.api.get_nearest_stops(
+                lat,
+                lon,
+                margin_m=NEAREST_FALLBACK_MARGIN_M,
+                max_candidates=NEAREST_FALLBACK_MAX_CANDIDATES,
+            )
+        except Exception as err:
+            _LOGGER.debug("VigoBus: nearest fallback candidates unavailable: %s", err)
+            return None
+
+        for candidate in candidates:
+            candidate_id = self._extract_stop_id(candidate)
+            if candidate_id is None or str(candidate_id) == str(tried_stop_id):
+                continue
+            try:
+                data = await self.api.get_estimacion(candidate_id)
+            except Exception as err:
+                _LOGGER.debug("VigoBus: nearest fallback stop %s failed: %s", candidate_id, err)
+                continue
+            if estimaciones_for({"data": data}):
+                return candidate, data
+        return None
 
     def _minutes_from_result(self, result):
         estimaciones = (result or {}).get("data", {}).get("estimaciones", [])
@@ -696,10 +749,10 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             return result
 
         lines = self._extract_lines_from_estimacion(result.get("data", {}))
-        alerts = []
+        candidates = []
         seen = set()
 
-        max_alerts = int(self._entry_value("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP))
+        max_alerts = max(1, int(self._entry_value("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP)))
         today = dt_util.now().date()
 
         for line in lines:
@@ -713,11 +766,13 @@ class VigoBusCoordinator(DataUpdateCoordinator):
                 if status == "expired":
                     continue
                 seen.add(signature)
-                alerts.append({**alert, "status": status})
-                if len(alerts) >= max_alerts:
-                    break
-            if len(alerts) >= max_alerts:
-                break
+                candidates.append({**alert, "status": status})
+
+        # Alerts in force go first (the sort is stable, so the line order is
+        # otherwise kept), so the per-stop cap can never hide one of them
+        # behind an upcoming alert that merely sorted earlier.
+        candidates.sort(key=lambda alert: alert["status"] != "active")
+        alerts = candidates[:max_alerts]
 
         result["lines"] = lines
         result["alerts"] = alerts
