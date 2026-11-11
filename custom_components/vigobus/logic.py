@@ -5,7 +5,7 @@ test and safe to import from anywhere.
 """
 
 import math
-from datetime import date
+from datetime import date, timedelta
 
 from .api import split_line_variant
 from .const import WALK_DETOUR_FACTOR, WALK_SPEED_MPS
@@ -206,3 +206,30 @@ def collect_alerts(results):
         return (item.get("status") != "active", str(item.get("fin") or "9999"), str(item.get("title") or ""))
 
     return sorted(merged.values(), key=_order)
+
+
+ALERT_KINDS = ("strike", "closure", "detour", "stop_closed", "works", "schedule", "info")
+
+
+def alert_event_span(alert, today):
+    """All-day span ``(start, end_exclusive)`` of an alert, or None if expired.
+
+    Missing dates degrade gracefully: no start means "from today", no end
+    means a single day.
+    """
+    start = parse_alert_date((alert or {}).get("inicio")) or today
+    end = parse_alert_date((alert or {}).get("fin")) or start
+    if end < start:
+        end = start
+    if end < today:
+        return None
+    return start, end + timedelta(days=1)
+
+
+def split_lines_text(value):
+    """``"25, 11"`` (or a list) -> ``["25", "11"]``."""
+    if isinstance(value, (list, tuple, set)):
+        raw = [str(item or "") for item in value]
+    else:
+        raw = str(value or "").replace(";", ",").split(",")
+    return [part.strip() for part in raw if part.strip()]

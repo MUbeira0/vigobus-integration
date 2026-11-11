@@ -219,10 +219,35 @@ def install_stubs():
         event_mod = types.ModuleType("homeassistant.components.event")
 
         class EventEntity:
-            pass
+            def _trigger_event(self, event_type, event_attributes=None):
+                self.__dict__.setdefault("_fired", []).append((event_type, event_attributes))
+
+            def async_write_ha_state(self):
+                pass
+
+            def async_on_remove(self, func):
+                pass
 
         event_mod.EventEntity = EventEntity
         components.event = _register("homeassistant.components.event", event_mod)
+
+        calendar_mod = types.ModuleType("homeassistant.components.calendar")
+
+        class CalendarEntity:
+            pass
+
+        class CalendarEvent:
+            def __init__(self, start, end, summary, description=None, location=None, uid=None, **kwargs):
+                self.start = start
+                self.end = end
+                self.summary = summary
+                self.description = description
+                self.location = location
+                self.uid = uid
+
+        calendar_mod.CalendarEntity = CalendarEntity
+        calendar_mod.CalendarEvent = CalendarEvent
+        components.calendar = _register("homeassistant.components.calendar", calendar_mod)
 
         diagnostics_mod = types.ModuleType("homeassistant.components.diagnostics")
         REDACTED = "**REDACTED**"

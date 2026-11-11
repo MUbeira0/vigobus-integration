@@ -310,6 +310,9 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
         # Set when the closest stop had no buses and another nearby stop is
         # being shown instead (see the coordinator's nearest fallback).
         attrs["fallback_stop"] = entry_data.get("fallback")
+        # Set when the stop has no buses at all: which lines serve it and, once
+        # the schedule is loaded, when the next one is due.
+        attrs["no_service"] = entry_data.get("no_service")
         attrs["alerts"] = entry_data.get("alerts", [])
         attrs["alerts_count"] = entry_data.get("alerts_count", 0)
         attrs["stale"] = bool(entry_data.get("stale", False))

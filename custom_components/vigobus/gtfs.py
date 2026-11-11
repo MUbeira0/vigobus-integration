@@ -14,10 +14,12 @@ so it stays testable as plain Python with no stubs required.
 
 import asyncio
 import csv
+import datetime
 import io
 import logging
 import time
 import zipfile
+from bisect import bisect_left
 from collections import defaultdict
 
 from .api import haversine, split_line_variant
@@ -397,3 +399,50 @@ def cache_status():
         "expires_in_seconds": max(0, round(expires_at - time.monotonic())),
         "counts": index.get("counts"),
     }
+
+
+def cached_index():
+    """The GTFS index if it is already in memory, else None. Never touches the network."""
+    return _GTFS_CACHE.get("data")
+
+
+def _departures_on(index, stop_id, date_str, from_seconds):
+    services = active_services(index, date_str)
+    found = []
+    for pattern_idx, stop_idx in index.get("routes_by_stop", {}).get(stop_id, ()):
+        pattern = index["patterns"][pattern_idx]
+        if stop_idx >= len(pattern["stops"]) - 1:
+            continue  # the last stop of a trip has no departure
+        dep_col = pattern["dep"][stop_idx]
+        service_ids = pattern["service_ids"]
+        j = bisect_left(dep_col, from_seconds)
+        while j < len(dep_col) and service_ids[j] not in services:
+            j += 1
+        if j < len(dep_col):
+            found.append((dep_col[j], pattern.get("line") or "", pattern.get("headsign") or ""))
+    found.sort()
+    return found
+
+
+def next_departures(index, stop_id, date_str, from_seconds, limit=3):
+    """Next scheduled departures from a stop (municipal ``stop_id``).
+
+    Looks at ``date_str`` (``YYYYMMDD``) from ``from_seconds`` of that day and,
+    if nothing is left, at the first departures of the next day.
+    Each item is ``{"seconds", "line", "headsign", "next_day"}``.
+    """
+    stop_id = str(stop_id)
+    today_rows = _departures_on(index, stop_id, date_str, from_seconds)
+    next_day = False
+    rows = today_rows
+    if not rows:
+        try:
+            tomorrow = (datetime.datetime.strptime(date_str, "%Y%m%d") + datetime.timedelta(days=1)).strftime("%Y%m%d")
+        except ValueError:
+            return []
+        rows = _departures_on(index, stop_id, tomorrow, 0)
+        next_day = True
+    return [
+        {"seconds": seconds, "line": line, "headsign": headsign, "next_day": next_day}
+        for seconds, line, headsign in rows[: max(1, int(limit))]
+    ]

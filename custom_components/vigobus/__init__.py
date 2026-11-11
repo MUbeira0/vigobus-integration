@@ -49,7 +49,7 @@ from .voice import INTENT_NEXT_BUS, NextBusIntentHandler
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor", "binary_sensor", "event"]
+PLATFORMS = ["sensor", "binary_sensor", "event", "calendar"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
