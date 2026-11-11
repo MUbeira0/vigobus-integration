@@ -35,9 +35,12 @@ from .const import (
     SIGNAL_NEW_ALERTS,
     STOP_CHECK_INTERVAL_SECONDS,
 )
-from .logic import compute_leave, estimaciones_for, live_counts, walk_minutes
+from .logic import alert_key, alert_status, compute_leave, estimaciones_for, live_counts, walk_minutes
 
 _LOGGER = logging.getLogger(__name__)
+
+# Consecutive good scans an alert must be absent before it is forgotten.
+ALERT_FORGET_CYCLES = 3
 
 # After this many consecutive failures, start backing off from the
 # configured scan_interval instead of retrying at full speed against a
@@ -76,6 +79,14 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         # flood of "new" alerts.
         self._notified_alert_ids = set()
         self._alerts_baseline_done = False
+        # How many consecutive good scans each known alert has been missing
+        # from. An alert is only forgotten (and so announced again if it comes
+        # back) after ALERT_FORGET_CYCLES, so one stop failing to load for a
+        # cycle doesn't make its alerts look new on the next one.
+        self._alert_missing = {}
+        # Last alert index that was fetched successfully; reused when the feed
+        # is down so alerts don't blink out of the sensors.
+        self._last_alerts_index = {}
         # Automation features: leave-now notifications, commute profiles,
         # live-reliability history and the periodic "does this stop still
         # exist" check that feeds Repairs.
@@ -312,31 +323,47 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         )
         self._last_notification_at[stop_key] = now
 
-    async def _maybe_notify_new_alerts(self, results):
+    async def _maybe_notify_new_alerts(self, results, fresh=True):
         """Detect alerts that were not present on the previous scan.
 
         Detection always runs, so automations can react through the alert
         event entity even when notifications are off. The notification itself
         is still opt-in.
+
+        ``fresh`` is False when the alerts feed could not be refreshed this
+        cycle: nothing is learned from a stale snapshot, so the known set is
+        left untouched instead of being emptied (which would re-announce every
+        alert once the feed came back).
         """
+        if not fresh:
+            return
+
         current = {}
         for value in results.values():
             for alert in value.get("alerts", []) or []:
-                key = (
-                    alert.get("id_publicacion"),
-                    alert.get("title"),
-                    alert.get("inicio"),
-                    alert.get("fin"),
-                )
-                current[key] = alert
+                if isinstance(alert, dict):
+                    current[alert_key(alert)] = alert
 
         if not self._alerts_baseline_done:
             self._notified_alert_ids = set(current.keys())
+            self._alert_missing = {}
             self._alerts_baseline_done = True
             return
 
         new_alerts = [alert for key, alert in current.items() if key not in self._notified_alert_ids]
-        self._notified_alert_ids = set(current.keys())
+
+        for key in list(self._notified_alert_ids):
+            if key in current:
+                self._alert_missing.pop(key, None)
+                continue
+            missing = self._alert_missing.get(key, 0) + 1
+            if missing >= ALERT_FORGET_CYCLES:
+                self._notified_alert_ids.discard(key)
+                self._alert_missing.pop(key, None)
+            else:
+                self._alert_missing[key] = missing
+        self._notified_alert_ids.update(current.keys())
+
         if not new_alerts:
             return
 
@@ -673,21 +700,20 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         seen = set()
 
         max_alerts = int(self._entry_value("alerts_max_per_stop", DEFAULT_ALERTS_MAX_PER_STOP))
+        today = dt_util.now().date()
 
         for line in lines:
             for alert in alerts_index.get(line, []):
                 if not isinstance(alert, dict):
                     continue
-                signature = (
-                    alert.get("id_publicacion"),
-                    alert.get("title"),
-                    alert.get("inicio"),
-                    alert.get("fin"),
-                )
+                signature = alert_key(alert)
                 if signature in seen:
                     continue
+                status = alert_status(alert, today)
+                if status == "expired":
+                    continue
                 seen.add(signature)
-                alerts.append(alert)
+                alerts.append({**alert, "status": status})
                 if len(alerts) >= max_alerts:
                     break
             if len(alerts) >= max_alerts:
@@ -695,7 +721,9 @@ class VigoBusCoordinator(DataUpdateCoordinator):
 
         result["lines"] = lines
         result["alerts"] = alerts
-        result["alerts_count"] = len(alerts)
+        # Only alerts in force count: upcoming ones are listed (status
+        # "upcoming") but don't turn the service status into "alerts" yet.
+        result["alerts_count"] = sum(1 for alert in alerts if alert.get("status") == "active")
         return result
 
     async def _async_update_data(self):
@@ -703,17 +731,27 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             results = {}
             updated_at = dt_util.utcnow().isoformat()
             alerts_index = {}
+            alerts_fresh = False
             alerts_lang = str(self._entry_value("alerts_lang", DEFAULT_ALERTS_LANG) or "es").lower()
 
             try:
                 alerts_index = await self.api.get_line_alerts(lang=alerts_lang, logger=_LOGGER)
+                alerts_fresh = True
             except Exception as err:
                 _LOGGER.warning("VigoBus: unable to refresh line alerts for lang=%s: %s", alerts_lang, err)
                 if alerts_lang != "es":
                     try:
                         alerts_index = await self.api.get_line_alerts(lang="es", logger=_LOGGER)
+                        alerts_fresh = True
                     except Exception:
-                        alerts_index = {}
+                        pass
+
+            if alerts_fresh:
+                self._last_alerts_index = alerts_index
+            else:
+                # Keep showing the last alerts we know about instead of
+                # blanking them out for a transient feed failure.
+                alerts_index = self._last_alerts_index
 
             try:
                 # Cached for a day inside VigoBusApi, so this is cheap on every
@@ -789,7 +827,7 @@ class VigoBusCoordinator(DataUpdateCoordinator):
                 if key == "nearest" or key.startswith("nearest_"):
                     await self._maybe_send_notification(key, value)
                     await self._maybe_notify_leave_now(key, value)
-            await self._maybe_notify_new_alerts(results)
+            await self._maybe_notify_new_alerts(results, fresh=alerts_fresh)
             self._record_reliability(results)
             await self._maybe_run_commutes()
             await self._maybe_check_stops()

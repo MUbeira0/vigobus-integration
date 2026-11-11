@@ -5,6 +5,7 @@ test and safe to import from anywhere.
 """
 
 import math
+from datetime import date
 
 from .api import split_line_variant
 from .const import WALK_DETOUR_FACTOR, WALK_SPEED_MPS
@@ -127,3 +128,81 @@ def format_minutes_es(minutes):
     """"1 minuto" / "5 minutos" – used for spoken answers."""
     minutes = int(minutes)
     return f"{minutes} minuto" if minutes == 1 else f"{minutes} minutos"
+
+
+# ----------------------------------------------------------------------
+# Alerts
+# ----------------------------------------------------------------------
+
+
+def alert_key(alert):
+    """Stable identity of an alert.
+
+    The publication id is what the feed itself uses, so an alert whose title or
+    dates get edited (typically an "ACTUALIZACI\u00d3N ..." of the same notice) is
+    still the same alert. Only alerts without an id fall back to a signature.
+    """
+    alert = alert or {}
+    pub_id = alert.get("id_publicacion")
+    if pub_id:
+        return ("id", str(pub_id))
+    return ("sig", alert.get("title"), alert.get("inicio"), alert.get("fin"))
+
+
+def parse_alert_date(value):
+    """``YYYY-MM-DD`` or ``DD-MM-YYYY`` (the feed uses both) -> ``date`` or None."""
+    text = str(value or "").strip()[:10]
+    try:
+        if len(text) == 10 and text[4] == "-":
+            return date(int(text[0:4]), int(text[5:7]), int(text[8:10]))
+        if len(text) == 10 and text[2] == "-":
+            return date(int(text[6:10]), int(text[3:5]), int(text[0:2]))
+    except ValueError:
+        return None
+    return None
+
+
+def alert_status(alert, today):
+    """``expired``, ``upcoming`` or ``active`` for ``today`` (a ``date``).
+
+    An alert with a missing or unreadable date is treated as active, so a
+    malformed record is never silently hidden.
+    """
+    start = parse_alert_date((alert or {}).get("inicio"))
+    end = parse_alert_date((alert or {}).get("fin"))
+    if end is not None and end < today:
+        return "expired"
+    if start is not None and start > today:
+        return "upcoming"
+    return "active"
+
+
+def collect_alerts(results):
+    """Distinct alerts across every stop, with the stops each one affects.
+
+    ``results`` is the coordinator data (stop key -> stop result). The same
+    alert shows up on every stop served by an affected line, so counting per
+    stop inflates the number; this returns each alert once, active first and
+    then by end date.
+    """
+    merged = {}
+    for key, value in (results or {}).items():
+        if not isinstance(value, dict):
+            continue
+        stop = value.get("stop_name") or key
+        for alert in value.get("alerts") or []:
+            if not isinstance(alert, dict):
+                continue
+            akey = alert_key(alert)
+            entry = merged.get(akey)
+            if entry is None:
+                entry = dict(alert)
+                entry["stops"] = []
+                merged[akey] = entry
+            if stop not in entry["stops"]:
+                entry["stops"].append(stop)
+
+    def _order(item):
+        return (item.get("status") != "active", str(item.get("fin") or "9999"), str(item.get("title") or ""))
+
+    return sorted(merged.values(), key=_order)

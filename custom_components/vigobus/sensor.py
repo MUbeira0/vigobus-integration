@@ -4,7 +4,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import split_line_variant
 from .const import DOMAIN
-from .logic import compute_leave  # noqa: F401  (re-exported for tests)
+from .logic import collect_alerts, compute_leave  # noqa: F401  (compute_leave re-exported for tests)
 
 
 def _normalize_line(value):
@@ -320,7 +320,30 @@ class VigoBusSensor(CoordinatorEntity, SensorEntity):
         return attrs
 
 
-class VigoBusLineSensor(VigoBusSensor):
+class _VigoBusDerivedSensor(VigoBusSensor):
+    """Line / route / upcoming sensors of a stop.
+
+    They share the stop's coordinator entry with the main sensor, so repeating
+    the full bus list and alert list on each of them just stores the same
+    payload several times in the recorder. They keep the identifying and
+    health attributes; the full detail lives on the main stop sensor.
+    """
+
+    @property
+    def extra_state_attributes(self):
+        entry_data = self._entry_data()
+        return {
+            "stop_key": self.stop_key,
+            "stop_name": entry_data.get("stop_name") or self._display_name,
+            "line_filter": self._line_filter or None,
+            "updated_at": entry_data.get("updated_at"),
+            "alerts_count": entry_data.get("alerts_count", 0),
+            "stale": bool(entry_data.get("stale", False)),
+            "last_success_at": entry_data.get("last_success_at"),
+        }
+
+
+class VigoBusLineSensor(_VigoBusDerivedSensor):
     def __init__(self, coordinator, stop_key, entry_id=None, display_name=None, line_filter=None):
         super().__init__(
             coordinator, stop_key, entry_id=entry_id, display_name=display_name, line_filter=line_filter
@@ -340,7 +363,7 @@ class VigoBusLineSensor(VigoBusSensor):
         return estimaciones[0].get("linea")
 
 
-class VigoBusRouteSensor(VigoBusSensor):
+class VigoBusRouteSensor(_VigoBusDerivedSensor):
     def __init__(self, coordinator, stop_key, entry_id=None, display_name=None, line_filter=None):
         super().__init__(
             coordinator, stop_key, entry_id=entry_id, display_name=display_name, line_filter=line_filter
@@ -360,7 +383,7 @@ class VigoBusRouteSensor(VigoBusSensor):
         return estimaciones[0].get("ruta")
 
 
-class VigoBusUpcomingSensor(VigoBusSensor):
+class VigoBusUpcomingSensor(_VigoBusDerivedSensor):
     def __init__(self, coordinator, stop_key, entry_id=None, display_name=None, line_filter=None):
         super().__init__(
             coordinator, stop_key, entry_id=entry_id, display_name=display_name, line_filter=line_filter
@@ -489,15 +512,16 @@ class VigoBusStatusSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         coordinator = self.coordinator
-        total_alerts = 0
-        for value in (coordinator.data or {}).values():
-            if isinstance(value, dict):
-                total_alerts += int(value.get("alerts_count") or 0)
+        # The same alert is attached to every stop served by an affected line,
+        # so it is counted once here, not once per stop.
+        alerts = collect_alerts(coordinator.data)
         return {
             "consecutive_failures": coordinator._consecutive_failures,
             "last_success_at": coordinator._last_success_at,
             "last_error_at": coordinator._last_error_at,
-            "active_alerts": total_alerts,
+            "active_alerts": sum(1 for alert in alerts if alert.get("status") == "active"),
+            "upcoming_alerts": sum(1 for alert in alerts if alert.get("status") == "upcoming"),
+            "alerts": alerts,
         }
 
 
