@@ -4,6 +4,7 @@ import unittest
 import conftest  # noqa: F401  (installs Home Assistant stubs on import)
 
 coordinator_mod = importlib.import_module("custom_components.vigobus.coordinator")
+alert_key = importlib.import_module("custom_components.vigobus.logic").alert_key
 
 
 class _FakeStates:
@@ -83,7 +84,7 @@ class NewAlertNotificationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self._sent, [])
         self.assertTrue(coord._alerts_baseline_done)
-        self.assertIn(("p1", "Corte C1", "2026-01-01", "2026-01-02"), coord._notified_alert_ids)
+        self.assertIn(alert_key(_alert("p1", "Corte C1")), coord._notified_alert_ids)
 
     async def test_notifies_once_for_an_alert_appearing_after_baseline(self):
         coord = self._make()

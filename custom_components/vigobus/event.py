@@ -8,6 +8,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from .const import DOMAIN, SIGNAL_NEW_ALERTS
 
 EVENT_NEW_ALERT = "new_alert"
+BUS_EVENT_NEW_ALERT = "vigobus_new_alert"
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -44,13 +45,19 @@ class VigoBusAlertEvent(EventEntity):
     @callback
     def _handle_new_alerts(self, alerts):
         for alert in alerts:
-            self._trigger_event(
-                EVENT_NEW_ALERT,
-                {
-                    "title": alert.get("title"),
-                    "lines": alert.get("lineas"),
-                    "start": alert.get("inicio"),
-                    "end": alert.get("fin"),
-                },
-            )
+            payload = {
+                "id": alert.get("id_publicacion"),
+                "title": alert.get("title"),
+                "lines": alert.get("lineas"),
+                "start": alert.get("inicio"),
+                "end": alert.get("fin"),
+                "description": alert.get("description"),
+                "kind": alert.get("kind"),
+                "status": alert.get("status"),
+            }
+            self._trigger_event(EVENT_NEW_ALERT, payload)
+            # An event entity only keeps the last event it fired, so when
+            # several alerts arrive in the same scan an automation watching
+            # the entity would miss all but one. The bus event carries each.
+            self.hass.bus.async_fire(BUS_EVENT_NEW_ALERT, {**payload, "entry_id": self._entry_id})
         self.async_write_ha_state()

@@ -96,6 +96,41 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+_KIND_PATTERNS = (
+    ("strike", ("huelga", "folga", "strike", "servicios minimos", "servizos minimos", "minimum service")),
+    ("stop_closed", ("anulad", "suprimid", "trasladad", "stop closed", "stop cancelled")),
+    ("closure", ("corte", "cortes", "cierre", "pechado", "peche", "closure", "road closed")),
+    ("detour", ("desvio", "desv\u00edo", "desviacion", "desvia", "detour")),
+    ("works", ("obras", "obra ", "traballos", "works")),
+    ("schedule", ("horario", "frecuencia", "frecuencias", "schedule")),
+)
+
+
+def classify_alert(title, description=""):
+    """Coarse, language-independent kind of an alert.
+
+    The feed labels every alert "Informaci\u00f3n general", so the category says
+    nothing. This looks at the title (and, failing that, the summary) for the
+    usual Spanish/Galician/English wording and returns one of ``strike``,
+    ``stop_closed``, ``closure``, ``detour``, ``works``, ``schedule`` or
+    ``info``.
+    """
+
+    def _fold(text):
+        text = str(text or "").lower()
+        for src, dst in (("\u00e1", "a"), ("\u00e9", "e"), ("\u00ed", "i"), ("\u00f3", "o"), ("\u00fa", "u")):
+            text = text.replace(src, dst)
+        return text
+
+    for haystack in (_fold(title), _fold(description)):
+        for kind, needles in _KIND_PATTERNS:
+            if kind == "stop_closed" and not ("parada" in haystack or "stop" in haystack):
+                continue
+            if any(_fold(needle) in haystack for needle in needles):
+                return kind
+    return "info"
+
+
 class VigoBusApi:
     def __init__(self, session: ClientSession):
         self.session = session
@@ -275,6 +310,7 @@ class VigoBusApi:
                 "fin": item.get("fecha_fin"),
                 "description": html.unescape(str(item.get("resumen") or "").strip()) or None,
                 "category": str(item.get("subcategoria") or "").strip() or None,
+                "kind": classify_alert(title, item.get("resumen")),
             }
 
             for line in affected_lines:

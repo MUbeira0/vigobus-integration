@@ -102,7 +102,7 @@ For the whole integration (device *VigoBus servicio*):
 | Entity | What it is |
 |---|---|
 | **Service status** (`sensor`) | `ok`, `alerts` (there are active line alerts), `degraded` (last scan failed) or `offline` (3 or more failed scans). |
-| **Alerts** (`event`) | Fires `new_alert` once for every alert that was not there on the previous scan, with `title`, `lines`, `start` and `end`. Works even if notifications are off. |
+| **Alerts** (`event`) | Fires `new_alert` once for every alert that was not there on the previous scan, with `id`, `title`, `lines`, `start`, `end`, `description`, `kind` and `status`. An alert is identified by its publication id, so an edited notice is not announced twice, and a feed outage never re-announces everything. Works even if notifications are off. Each alert is also fired as a `vigobus_new_alert` bus event, because an event entity only keeps the last one when several arrive in the same scan. |
 | **Commute \<name\>** (`sensor`) | Departure time of the best option for that commute, planned shortly before you usually leave. |
 
 **How *Leave now* works.** The walk is the straight-line distance to the stop times 1.3 (streets are not straight) at 1.25 m/s, rounded up, plus your safety margin. The bus you can catch is the first one that is at least that far away. It is an estimate: it does not know about hills, crossings or your real walking speed.
@@ -296,8 +296,8 @@ Para toda la integración (dispositivo *VigoBus servicio*):
 
 | Entidad | Qué es |
 |---|---|
-| **Estado del servicio** (`sensor`) | `ok`, `alerts` (hay avisos de línea activos), `degraded` (el último escaneo falló) u `offline` (3 o más escaneos fallidos). |
-| **Avisos** (`event`) | Dispara `new_alert` una vez por cada aviso que no estaba en el escaneo anterior, con `title`, `lines`, `start` y `end`. Funciona aunque las notificaciones estén desactivadas. |
+| **Estado del servicio** (`sensor`) | `ok`, `alerts` (hay avisos de línea en vigor), `degraded` (el último escaneo falló) u `offline` (3 o más escaneos fallidos). Atributos: `active_alerts` y `upcoming_alerts` (avisos distintos, no uno por parada) y `alerts` con la lista sin duplicados y las paradas afectadas (`stops`). Los avisos caducados se descartan y los que aún no empiezan salen con `status: upcoming`. |
+| **Avisos** (`event`) | Dispara `new_alert` una vez por cada aviso que no estaba en el escaneo anterior, con `id`, `title`, `lines`, `start`, `end`, `description`, `kind` y `status`. Un aviso se identifica por su id de publicación, así que uno editado no se anuncia dos veces, y una caída del servicio de avisos no vuelve a anunciarlos todos. Funciona aunque las notificaciones estén desactivadas. Cada aviso se lanza además como evento `vigobus_new_alert` en el bus, porque una entidad de evento solo conserva el último si llegan varios en el mismo escaneo. |
 | **Trayecto \<nombre\>** (`sensor`) | Hora de salida de la mejor opción de ese trayecto, planificada poco antes de que salgas. |
 
 **Cómo funciona *Salir ya*.** El paseo es la distancia en línea recta a la parada por 1,3 (las calles no son rectas) a 1,25 m/s, redondeado hacia arriba, más tu margen de seguridad. El bus que puedes coger es el primero que está al menos a esa distancia. Es una estimación: no conoce cuestas, semáforos ni tu velocidad real.
@@ -491,8 +491,8 @@ Para toda a integración (dispositivo *VigoBus servicio*):
 
 | Entidade | Que é |
 |---|---|
-| **Estado do servizo** (`sensor`) | `ok`, `alerts` (hai avisos de liña activos), `degraded` (o último escaneo fallou) ou `offline` (3 ou máis escaneos fallidos). |
-| **Avisos** (`event`) | Dispara `new_alert` unha vez por cada aviso que non estaba no escaneo anterior, con `title`, `lines`, `start` e `end`. Funciona aínda que as notificacións estean desactivadas. |
+| **Estado do servizo** (`sensor`) | `ok`, `alerts` (hai avisos de liña en vigor), `degraded` (o último escaneo fallou) ou `offline` (3 ou máis escaneos fallidos). Atributos: `active_alerts` e `upcoming_alerts` (avisos distintos, non un por parada) e `alerts` coa lista sen duplicados e as paradas afectadas (`stops`). Os avisos caducados descártanse e os que aínda non empezan saen con `status: upcoming`. |
+| **Avisos** (`event`) | Dispara `new_alert` unha vez por cada aviso que non estaba no escaneo anterior, con `id`, `title`, `lines`, `start`, `end`, `description`, `kind` e `status`. Un aviso identifícase polo seu id de publicación, así que un editado non se anuncia dúas veces, e unha caída do servizo de avisos non volve anunciar todos. Funciona aínda que as notificacións estean desactivadas. Cada aviso lánzase ademais como evento `vigobus_new_alert` no bus, porque unha entidade de evento só conserva o último se chegan varios no mesmo escaneo. |
 | **Traxecto \<nome\>** (`sensor`) | Hora de saída da mellor opción dese traxecto, planificada pouco antes de que saias. |
 
 **Como funciona *Saír xa*.** O paseo é a distancia en liña recta á parada por 1,3 (as rúas non son rectas) a 1,25 m/s, arredondado cara arriba, máis a túa marxe de seguridade. O bus que podes coller é o primeiro que está polo menos a esa distancia. É unha estimación: non coñece costas, semáforos nin a túa velocidade real.
