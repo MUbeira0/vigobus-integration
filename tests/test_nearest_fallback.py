@@ -101,13 +101,99 @@ class NearestFallbackTests(unittest.IsolatedAsyncioTestCase):
         # The closest stop stays the anchor, so the next scan tries it first again.
         self.assertEqual(coord._closest_stops["nearest"]["id"], "1")
 
-    async def test_candidate_lookup_uses_the_documented_margin(self):
+    async def test_the_radius_option_sets_how_far_to_look(self):
+        a = _stop("1")
+        api = _FakeApi(a, [a], {})
+        coord = coordinator_mod.VigoBusCoordinator(_FakeHass(), _FakeEntry(data={"nearest_fallback_radius_m": 800}))
+        coord.api = api
+        await self._resolve(coord)
+
+        self.assertEqual(api.margin_m, 800)
+        self.assertEqual(api.max_candidates, coordinator_mod.NEAREST_FALLBACK_MAX_CANDIDATES)
+
+    async def test_default_radius_is_250_m(self):
         a = _stop("1")
         api = _FakeApi(a, [a], {})
         await self._resolve(self._coord(api))
+        self.assertEqual(api.margin_m, 250)
 
-        self.assertEqual(api.margin_m, coordinator_mod.NEAREST_FALLBACK_MARGIN_M)
-        self.assertEqual(api.max_candidates, coordinator_mod.NEAREST_FALLBACK_MAX_CANDIDATES)
+    async def test_radius_zero_turns_the_fallback_off(self):
+        a, b = _stop("1"), _stop("2")
+        api = _FakeApi(a, [a, b], {"2": _buses("C1")})
+        coord = coordinator_mod.VigoBusCoordinator(_FakeHass(), _FakeEntry(data={"nearest_fallback_radius_m": 0}))
+        coord.api = api
+
+        entry = await self._resolve(coord)
+
+        self.assertEqual(entry["stop"]["id"], "1")
+        self.assertFalse(hasattr(api, "margin_m"))  # candidates were never even requested
+        self.assertEqual(api.requested, ["1"])
+
+    async def test_a_search_that_found_nothing_is_not_repeated_right_away(self):
+        a, b = _stop("1"), _stop("2")
+        api = _FakeApi(a, [a, b], {})
+        coord = self._coord(api)
+
+        await self._resolve(coord)
+        first = list(api.requested)
+        await self._resolve(coord)
+
+        # The second scan only re-checks the closest stop: no new candidate lookup.
+        self.assertEqual(api.requested, first + ["1"])
+
+    async def test_candidates_are_queried_together_and_the_closest_with_buses_wins(self):
+        a, b, c = _stop("1"), _stop("2"), _stop("3")
+        api = _FakeApi(a, [a, b, c], {"2": _buses("A"), "3": _buses("C1")})
+        entry = await self._resolve(self._coord(api))
+
+        self.assertEqual(entry["stop"]["id"], "2")
+
+
+class NoServiceInfoTests(unittest.IsolatedAsyncioTestCase):
+    def _coord(self):
+        coord = coordinator_mod.VigoBusCoordinator(_FakeHass(), _FakeEntry(data={}))
+        coord.hass.async_create_task = lambda coro: coro.close()
+        return coord
+
+    async def test_lists_the_lines_that_serve_the_stop_when_the_schedule_is_not_loaded(self):
+        coord = self._coord()
+        original = coordinator_mod.gtfs.cached_index
+        coordinator_mod.gtfs.cached_index = lambda: None
+        try:
+            info = coord._no_service_info({"stop_id": "3816", "lineas": "25, 11"})
+        finally:
+            coordinator_mod.gtfs.cached_index = original
+        self.assertEqual(info, {"serving_lines": ["25", "11"]})
+        self.assertTrue(coord._gtfs_warm_requested)
+
+    async def test_adds_the_next_scheduled_departure_when_the_schedule_is_loaded(self):
+        coord = self._coord()
+        original = (coordinator_mod.gtfs.cached_index, coordinator_mod.gtfs.next_departures)
+        coordinator_mod.gtfs.cached_index = lambda: {"fake": True}
+        coordinator_mod.gtfs.next_departures = lambda index, stop_id, date_str, seconds, limit=1: [
+            {"seconds": 7 * 3600 + 10 * 60, "line": "25", "headsign": "CENTRO", "next_day": True}
+        ]
+        try:
+            info = coord._no_service_info({"stop_id": "3816", "lineas": "25"})
+        finally:
+            coordinator_mod.gtfs.cached_index, coordinator_mod.gtfs.next_departures = original
+        self.assertEqual(info["next_scheduled"], {"time": "07:10", "line": "25", "headsign": "CENTRO", "tomorrow": True})
+
+    async def test_resolve_target_reports_no_service_when_nothing_nearby_has_buses(self):
+        a = _stop("1")
+        a["lineas"] = "25"
+        api = _FakeApi(a, [a], {})
+        coord = coordinator_mod.VigoBusCoordinator(_FakeHass(), _FakeEntry(data={}))
+        coord.api = api
+        coord.hass.async_create_task = lambda coro: coro.close()
+        original = coordinator_mod.gtfs.cached_index
+        coordinator_mod.gtfs.cached_index = lambda: None
+        try:
+            entry = await coord._resolve_nearest_target("nearest", "Casa", 42.2, -8.6, "now", {})
+        finally:
+            coordinator_mod.gtfs.cached_index = original
+        self.assertEqual(entry["no_service"]["serving_lines"], ["25"])
+        self.assertNotIn("fallback", entry)
 
 
 class AlertCapOrderTests(unittest.TestCase):

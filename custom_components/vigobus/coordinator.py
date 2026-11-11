@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from collections import deque
 from datetime import timedelta
 
@@ -14,6 +15,7 @@ from homeassistant.helpers.update_coordinator import (
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
+from . import gtfs
 from .api import VigoBusApi
 from .const import (
     COMMUTE_DAYS,
@@ -21,6 +23,7 @@ from .const import (
     DEFAULT_ALERTS_MAX_PER_STOP,
     DEFAULT_AUTO_NEAREST_DEVICES,
     DEFAULT_COMMUTE_LEAD_MIN,
+    DEFAULT_NEAREST_FALLBACK_RADIUS_M,
     DEFAULT_NEAREST_RECALC_DISTANCE_M,
     DEFAULT_NOTIFY_COOLDOWN_MIN,
     DEFAULT_NOTIFY_ENABLED,
@@ -30,12 +33,22 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_WALK_BUFFER_MIN,
     DOMAIN,
+    ISSUE_ALERTS_FEED,
     ISSUE_STOP_MISSING,
     RELIABILITY_WINDOW,
+    SIGNAL_ALERT_LIFECYCLE,
     SIGNAL_NEW_ALERTS,
     STOP_CHECK_INTERVAL_SECONDS,
 )
-from .logic import alert_key, alert_status, compute_leave, estimaciones_for, live_counts, walk_minutes
+from .logic import (
+    alert_key,
+    alert_status,
+    compute_leave,
+    estimaciones_for,
+    live_counts,
+    split_lines_text,
+    walk_minutes,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,9 +56,12 @@ _LOGGER = logging.getLogger(__name__)
 ALERT_FORGET_CYCLES = 3
 
 # When the closest stop has no buses at all (a stop nothing serves right now),
-# the "nearest" sensor looks at the next closest stops within this margin of it.
-NEAREST_FALLBACK_MARGIN_M = 250
-NEAREST_FALLBACK_MAX_CANDIDATES = 4
+# the "nearest" sensor looks at other stops within the configured radius of it.
+NEAREST_FALLBACK_MAX_CANDIDATES = 12
+# After a fallback search finds nothing, don't repeat it on every scan.
+NEAREST_FALLBACK_RETRY_SECONDS = 120
+# Failed alert scans in a row before a repair issue is raised.
+ALERTS_FEED_ISSUE_THRESHOLD = 5
 
 # After this many consecutive failures, start backing off from the
 # configured scan_interval instead of retrying at full speed against a
@@ -92,6 +108,12 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         # Last alert index that was fetched successfully; reused when the feed
         # is down so alerts don't blink out of the sensors.
         self._last_alerts_index = {}
+        # Last version of every known alert, to report alert_started/alert_ended.
+        self._alert_last = {}
+        self._fallback_retry_at = {}
+        self._alerts_feed_failures = 0
+        self._alerts_feed_issue = False
+        self._gtfs_warm_requested = False
         # Automation features: leave-now notifications, commute profiles,
         # live-reliability history and the periodic "does this stop still
         # exist" check that feeds Repairs.
@@ -226,8 +248,10 @@ class VigoBusCoordinator(DataUpdateCoordinator):
 
         data = await self.api.get_estimacion(stop_id)
         fallback = None
+        no_service = None
+        original_stop = stop
         if not estimaciones_for({"data": data}):
-            found = await self._fallback_stop_with_buses(lat, lon, stop_id)
+            found = await self._fallback_stop_with_buses(key, lat, lon, stop_id)
             if found:
                 fallback_stop, data = found
                 fallback = {
@@ -236,6 +260,8 @@ class VigoBusCoordinator(DataUpdateCoordinator):
                     "stop_name": fallback_stop.get("nombre") or fallback_stop.get("name"),
                 }
                 stop = fallback_stop
+            else:
+                no_service = self._no_service_info(original_stop)
 
         entry = {
             "stop": stop,
@@ -246,6 +272,8 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         }
         if fallback:
             entry["fallback"] = fallback
+        if no_service:
+            entry["no_service"] = no_service
         stop_lat = stop.get("latitud")
         stop_lon = stop.get("longitud")
         if stop_lat is not None and stop_lon is not None:
@@ -258,7 +286,7 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         self._attach_alerts(entry, alerts_index)
         return entry
 
-    async def _fallback_stop_with_buses(self, lat, lon, tried_stop_id):
+    async def _fallback_stop_with_buses(self, key, lat, lon, tried_stop_id):
         """Closest other stop that currently has buses, or None.
 
         Only used when the closest stop returns nothing, so a nearest sensor
@@ -266,30 +294,90 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         closest stop is still tried first on every scan: this never replaces
         the stop the sensor is anchored to, it only borrows another one for
         the scan when the anchor is empty.
+
+        ``nearest_fallback_radius_m`` (0 = off) is how far beyond the closest
+        stop to look. The candidates are queried together, and a search that
+        finds nothing isn't repeated for a couple of minutes.
         """
+        radius = int(self._entry_value("nearest_fallback_radius_m", DEFAULT_NEAREST_FALLBACK_RADIUS_M) or 0)
+        if radius <= 0:
+            return None
+        if time.monotonic() < self._fallback_retry_at.get(key, 0.0):
+            return None
+
         try:
             candidates = await self.api.get_nearest_stops(
-                lat,
-                lon,
-                margin_m=NEAREST_FALLBACK_MARGIN_M,
-                max_candidates=NEAREST_FALLBACK_MAX_CANDIDATES,
+                lat, lon, margin_m=radius, max_candidates=NEAREST_FALLBACK_MAX_CANDIDATES
             )
         except Exception as err:
             _LOGGER.debug("VigoBus: nearest fallback candidates unavailable: %s", err)
             return None
 
+        todo = []
         for candidate in candidates:
             candidate_id = self._extract_stop_id(candidate)
             if candidate_id is None or str(candidate_id) == str(tried_stop_id):
                 continue
-            try:
-                data = await self.api.get_estimacion(candidate_id)
-            except Exception as err:
-                _LOGGER.debug("VigoBus: nearest fallback stop %s failed: %s", candidate_id, err)
+            todo.append((candidate, candidate_id))
+
+        results = await asyncio.gather(
+            *(self.api.get_estimacion(candidate_id) for _candidate, candidate_id in todo),
+            return_exceptions=True,
+        )
+        for (candidate, candidate_id), data in zip(todo, results):
+            if isinstance(data, BaseException):
+                _LOGGER.debug("VigoBus: nearest fallback stop %s failed: %s", candidate_id, data)
                 continue
             if estimaciones_for({"data": data}):
                 return candidate, data
+
+        self._fallback_retry_at[key] = time.monotonic() + NEAREST_FALLBACK_RETRY_SECONDS
         return None
+
+    def _no_service_info(self, stop):
+        """Why a stop shows no buses: the lines that serve it and, when the
+        schedule is already loaded, when the next one is due."""
+        if not isinstance(stop, dict):
+            return None
+        info = {"serving_lines": split_lines_text(stop.get("lineas"))}
+
+        index = gtfs.cached_index()
+        if index is None:
+            self._request_gtfs_warmup()
+            return info
+
+        now = dt_util.now()
+        departures = gtfs.next_departures(
+            index,
+            str(stop.get("stop_id") or ""),
+            now.strftime("%Y%m%d"),
+            now.hour * 3600 + now.minute * 60 + now.second,
+            limit=1,
+        )
+        if departures:
+            first = departures[0]
+            seconds = int(first["seconds"]) % 86400
+            info["next_scheduled"] = {
+                "time": f"{seconds // 3600:02d}:{(seconds % 3600) // 60:02d}",
+                "line": first["line"],
+                "headsign": first["headsign"],
+                "tomorrow": bool(first["next_day"]),
+            }
+        return info
+
+    def _request_gtfs_warmup(self):
+        """Load the schedule in the background, once, so later scans can use it."""
+        if self._gtfs_warm_requested or not hasattr(self.hass, "async_create_task"):
+            return
+        self._gtfs_warm_requested = True
+
+        async def _warm():
+            try:
+                await gtfs.get_gtfs_index(async_get_clientsession(self.hass), logger=_LOGGER)
+            except Exception as err:
+                _LOGGER.debug("VigoBus: schedule not available for the no-service hint: %s", err)
+
+        self.hass.async_create_task(_warm())
 
     def _minutes_from_result(self, result):
         estimaciones = (result or {}).get("data", {}).get("estimaciones", [])
@@ -400,10 +488,17 @@ class VigoBusCoordinator(DataUpdateCoordinator):
         if not self._alerts_baseline_done:
             self._notified_alert_ids = set(current.keys())
             self._alert_missing = {}
+            self._alert_last = dict(current)
             self._alerts_baseline_done = True
             return
 
         new_alerts = [alert for key, alert in current.items() if key not in self._notified_alert_ids]
+
+        lifecycle = []
+        for key, alert in current.items():
+            previous = self._alert_last.get(key)
+            if previous and previous.get("status") == "upcoming" and alert.get("status") == "active":
+                lifecycle.append(("alert_started", alert))
 
         for key in list(self._notified_alert_ids):
             if key in current:
@@ -413,9 +508,16 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             if missing >= ALERT_FORGET_CYCLES:
                 self._notified_alert_ids.discard(key)
                 self._alert_missing.pop(key, None)
+                ended = self._alert_last.pop(key, None)
+                if ended:
+                    lifecycle.append(("alert_ended", ended))
             else:
                 self._alert_missing[key] = missing
         self._notified_alert_ids.update(current.keys())
+        self._alert_last.update(current)
+
+        if lifecycle:
+            async_dispatcher_send(self.hass, SIGNAL_ALERT_LIFECYCLE.format(self.entry.entry_id), lifecycle)
 
         if not new_alerts:
             return
@@ -690,6 +792,29 @@ class VigoBusCoordinator(DataUpdateCoordinator):
             ir.async_delete_issue(self.hass, DOMAIN, issue_id)
         self._issues_created = wanted
 
+    def _track_alerts_feed(self, fresh):
+        """Raise a repair issue when the alerts feed keeps failing; clear it on recovery."""
+        issue_id = f"{ISSUE_ALERTS_FEED}_{self.entry.entry_id}"
+        if fresh:
+            self._alerts_feed_failures = 0
+            if self._alerts_feed_issue:
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+                self._alerts_feed_issue = False
+            return
+
+        self._alerts_feed_failures += 1
+        if self._alerts_feed_failures >= ALERTS_FEED_ISSUE_THRESHOLD and not self._alerts_feed_issue:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=ISSUE_ALERTS_FEED,
+                translation_placeholders={"failures": str(self._alerts_feed_failures)},
+            )
+            self._alerts_feed_issue = True
+
     def _mark_results_stale(self, previous, reason):
         if not isinstance(previous, dict):
             return {}
@@ -801,6 +926,7 @@ class VigoBusCoordinator(DataUpdateCoordinator):
                     except Exception:
                         pass
 
+            self._track_alerts_feed(alerts_fresh)
             if alerts_fresh:
                 self._last_alerts_index = alerts_index
             else:

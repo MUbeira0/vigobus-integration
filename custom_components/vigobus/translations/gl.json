@@ -12,6 +12,7 @@
           "auto_nearest_devices": "Crear automáticamente unha parada próxima por cada dispositivo (persoa / GPS)",
           "scan_interval": "Intervalo de actualización (segundos)",
           "nearest_recalc_distance_m": "Distancia para recalcular a máis próxima (metros)",
+          "nearest_fallback_radius_m": "Radio de reserva da máis próxima (metros, 0 = desactivado)",
           "notify_enabled": "Activar alertas automáticas",
           "notify_minutes": "Limiar da alerta (minutos)",
           "notify_cooldown_min": "Espera entre alertas (minutos)",
@@ -63,6 +64,7 @@
           "nearest_devices": "Parada máis próxima para estes dispositivos (persoa / GPS)",
           "auto_nearest_devices": "Crear automáticamente unha parada próxima por cada dispositivo (persoa / GPS)",
           "nearest_recalc_distance_m": "Distancia para recalcular a máis próxima (metros)",
+          "nearest_fallback_radius_m": "Radio de reserva da máis próxima (metros, 0 = desactivado)",
           "scan_interval": "Intervalo de actualización (segundos)"
         },
         "data_description": {
@@ -165,6 +167,10 @@
           }
         }
       }
+    },
+    "alerts_feed_unavailable": {
+      "title": "VigoBus non pode cargar os avisos de liña",
+      "description": "VigoBus fallou {failures} veces seguidas ao descargar os avisos de liña. Os avisos amosados poden estar desfasados. Reproba en cada escaneo e este aviso desaparece só cando volva funcionar."
     }
   }
 }

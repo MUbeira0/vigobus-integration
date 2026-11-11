@@ -57,6 +57,7 @@ Already installed with HACS? Nothing to do: Home Assistant migrates it automatic
 | Auto-create for every device | off | – | Creates one for every GPS device automatically. |
 | Update interval | 30 s | 15–300 s | How often sensors refresh. |
 | Nearest recalc distance | 120 m | 20–1000 m | How far a device must move before its nearest stop is recomputed. |
+| Nearest fallback radius | 250 m | 0–1500 m | How far beyond the closest stop to look for one with buses when the closest has none (0 = off). Also reported in `fallback_stop`; with no buses anywhere nearby, `no_service` lists the lines that serve the stop and the next scheduled departure. |
 | Automatic alerts | off | – | Notify when a bus is about to arrive. |
 | Alert threshold | 5 min | 1–60 | Notify when the bus is this close. |
 | Alert cooldown | 20 min | 1–240 | Minimum time between two notifications. |
@@ -106,6 +107,9 @@ For the whole integration (device *VigoBus servicio*):
 |---|---|
 | **Service status** (`sensor`) | `ok`, `alerts` (there are active line alerts), `degraded` (last scan failed) or `offline` (3 or more failed scans). |
 | **Alerts** (`event`) | Fires `new_alert` once for every alert that was not there on the previous scan, with `id`, `title`, `lines`, `start`, `end`, `description`, `kind` and `status`. An alert is identified by its publication id, so an edited notice is not announced twice, and a feed outage never re-announces everything. Works even if notifications are off. Each alert is also fired as a `vigobus_new_alert` bus event, because an event entity only keeps the last one when several arrive in the same scan. |
+| **Alert lifecycle** (`event`, same entity) | Besides `new_alert`, it fires `alert_started` when an upcoming alert comes into force and `alert_ended` when an alert is gone (after 3 good scans without it). Each one is also fired on the bus as `vigobus_alert_started` / `vigobus_alert_ended`. |
+| **Alerts calendar** (`calendar`) | Each distinct alert as an all-day event from its start to its end date (title, description, lines and affected stops), so alerts show in the calendar view and can be used as calendar triggers. |
+| **Alert kinds** (`binary_sensor`) | *strikes / road closures / detours / closed stops / roadworks in force*: on while at least one alert of that kind is in force on your stops. Attributes: `count`, `titles`, `lines`, `stops`. |
 | **Commute \<name\>** (`sensor`) | Departure time of the best option for that commute, planned shortly before you usually leave. |
 
 **How *Leave now* works.** The walk is the straight-line distance to the stop times 1.3 (streets are not straight) at 1.25 m/s, rounded up, plus your safety margin. The bus you can catch is the first one that is at least that far away. It is an estimate: it does not know about hills, crossings or your real walking speed.
@@ -255,6 +259,7 @@ Desde Home Assistant **2026.11**, HACS está integrado en Home Assistant como [M
 | Crear para todos los dispositivos | desactivado | – | Crea uno por cada dispositivo GPS automáticamente. |
 | Intervalo de actualización | 30 s | 15–300 s | Cada cuánto se refrescan los sensores. |
 | Distancia de recálculo | 120 m | 20–1000 m | Cuánto debe moverse un dispositivo para recalcular su parada cercana. |
+| Radio de reserva de la cercana | 250 m | 0–1500 m | Hasta dónde buscar, más allá de la parada más cercana, una parada con buses cuando la más cercana no tiene ninguno (0 = desactivado). Se indica en `fallback_stop`; si no hay buses en ninguna cercana, `no_service` lista las líneas que sirven la parada y la próxima salida programada. |
 | Avisos automáticos | desactivado | – | Avisa cuando un bus está a punto de llegar. |
 | Umbral de aviso | 5 min | 1–60 | Avisa cuando el bus está a esta distancia en minutos. |
 | Espera entre avisos | 20 min | 1–240 | Tiempo mínimo entre dos notificaciones. |
@@ -304,6 +309,9 @@ Para toda la integración (dispositivo *VigoBus servicio*):
 |---|---|
 | **Estado del servicio** (`sensor`) | `ok`, `alerts` (hay avisos de línea en vigor), `degraded` (el último escaneo falló) u `offline` (3 o más escaneos fallidos). Atributos: `active_alerts` y `upcoming_alerts` (avisos distintos, no uno por parada) y `alerts` con la lista sin duplicados y las paradas afectadas (`stops`). Los avisos caducados se descartan y los que aún no empiezan salen con `status: upcoming`. |
 | **Avisos** (`event`) | Dispara `new_alert` una vez por cada aviso que no estaba en el escaneo anterior, con `id`, `title`, `lines`, `start`, `end`, `description`, `kind` y `status`. Un aviso se identifica por su id de publicación, así que uno editado no se anuncia dos veces, y una caída del servicio de avisos no vuelve a anunciarlos todos. Funciona aunque las notificaciones estén desactivadas. Cada aviso se lanza además como evento `vigobus_new_alert` en el bus, porque una entidad de evento solo conserva el último si llegan varios en el mismo escaneo. |
+| **Ciclo de vida de los avisos** (`event`, misma entidad) | Además de `new_alert`, dispara `alert_started` cuando un aviso futuro entra en vigor y `alert_ended` cuando un aviso desaparece (tras 3 escaneos buenos sin verlo). Cada uno se lanza también en el bus como `vigobus_alert_started` / `vigobus_alert_ended`. |
+| **Calendario de avisos** (`calendar`) | Cada aviso distinto como evento de día completo desde su inicio hasta su fin (título, descripción, líneas y paradas afectadas), para verlos en el calendario y usarlos como disparadores de calendario. |
+| **Tipos de aviso** (`binary_sensor`) | *huelga / cortes de tráfico / desvíos / paradas anuladas / obras en vigor*: activo mientras haya al menos un aviso de ese tipo en vigor en tus paradas. Atributos: `count`, `titles`, `lines`, `stops`. |
 | **Trayecto \<nombre\>** (`sensor`) | Hora de salida de la mejor opción de ese trayecto, planificada poco antes de que salgas. |
 
 **Cómo funciona *Salir ya*.** El paseo es la distancia en línea recta a la parada por 1,3 (las calles no son rectas) a 1,25 m/s, redondeado hacia arriba, más tu margen de seguridad. El bus que puedes coger es el primero que está al menos a esa distancia. Es una estimación: no conoce cuestas, semáforos ni tu velocidad real.
@@ -453,6 +461,7 @@ Xa o tiñas con HACS? Non tes que facer nada: Home Assistant migrao só no prime
 | Crear para todos os dispositivos | desactivado | – | Crea un por cada dispositivo GPS automaticamente. |
 | Intervalo de actualización | 30 s | 15–300 s | Cada canto se refrescan os sensores. |
 | Distancia de recálculo | 120 m | 20–1000 m | Canto debe moverse un dispositivo para recalcular a súa parada próxima. |
+| Radio de reserva da máis próxima | 250 m | 0–1500 m | Ata onde buscar, máis aló da parada máis próxima, unha parada con buses cando a máis próxima non ten ningún (0 = desactivado). Indícase en `fallback_stop`; se non hai buses en ningunha próxima, `no_service` lista as liñas que serven a parada e a próxima saída programada. |
 | Avisos automáticos | desactivado | – | Avisa cando un bus está a piques de chegar. |
 | Límite de aviso | 5 min | 1–60 | Avisa cando o bus está a esta distancia en minutos. |
 | Espera entre avisos | 20 min | 1–240 | Tempo mínimo entre dúas notificacións. |
@@ -502,6 +511,9 @@ Para toda a integración (dispositivo *VigoBus servicio*):
 |---|---|
 | **Estado do servizo** (`sensor`) | `ok`, `alerts` (hai avisos de liña en vigor), `degraded` (o último escaneo fallou) ou `offline` (3 ou máis escaneos fallidos). Atributos: `active_alerts` e `upcoming_alerts` (avisos distintos, non un por parada) e `alerts` coa lista sen duplicados e as paradas afectadas (`stops`). Os avisos caducados descártanse e os que aínda non empezan saen con `status: upcoming`. |
 | **Avisos** (`event`) | Dispara `new_alert` unha vez por cada aviso que non estaba no escaneo anterior, con `id`, `title`, `lines`, `start`, `end`, `description`, `kind` e `status`. Un aviso identifícase polo seu id de publicación, así que un editado non se anuncia dúas veces, e unha caída do servizo de avisos non volve anunciar todos. Funciona aínda que as notificacións estean desactivadas. Cada aviso lánzase ademais como evento `vigobus_new_alert` no bus, porque unha entidade de evento só conserva o último se chegan varios no mesmo escaneo. |
+| **Ciclo de vida dos avisos** (`event`, mesma entidade) | Ademais de `new_alert`, dispara `alert_started` cando un aviso futuro entra en vigor e `alert_ended` cando un aviso desaparece (tras 3 escaneos bos sen velo). Cada un lánzase tamén no bus como `vigobus_alert_started` / `vigobus_alert_ended`. |
+| **Calendario de avisos** (`calendar`) | Cada aviso distinto como evento de día completo desde o seu inicio ata o seu fin (título, descrición, liñas e paradas afectadas), para velos no calendario e usalos como disparadores de calendario. |
+| **Tipos de aviso** (`binary_sensor`) | *folga / cortes de tráfico / desvíos / paradas anuladas / obras en vigor*: activo mentres haxa polo menos un aviso dese tipo en vigor nas túas paradas. Atributos: `count`, `titles`, `lines`, `stops`. |
 | **Traxecto \<nome\>** (`sensor`) | Hora de saída da mellor opción dese traxecto, planificada pouco antes de que saias. |
 
 **Como funciona *Saír xa*.** O paseo é a distancia en liña recta á parada por 1,3 (as rúas non son rectas) a 1,25 m/s, arredondado cara arriba, máis a túa marxe de seguridade. O bus que podes coller é o primeiro que está polo menos a esa distancia. É unha estimación: non coñece costas, semáforos nin a túa velocidade real.

@@ -156,3 +156,12 @@ RELIABILITY_WINDOW = 30
 # Repairs
 ISSUE_STOP_MISSING = "stop_missing"
 STOP_CHECK_INTERVAL_SECONDS = 6 * 60 * 60
+
+# Nearest sensor: how far (m) beyond the closest stop to look for one with buses
+# when the closest has none. 0 turns the fallback off.
+DEFAULT_NEAREST_FALLBACK_RADIUS_M = 250
+MIN_NEAREST_FALLBACK_RADIUS_M = 0
+MAX_NEAREST_FALLBACK_RADIUS_M = 1500
+
+SIGNAL_ALERT_LIFECYCLE = "vigobus_alert_lifecycle_{}"
+ISSUE_ALERTS_FEED = "alerts_feed_unavailable"

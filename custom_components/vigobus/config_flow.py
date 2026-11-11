@@ -10,6 +10,7 @@ from .const import (
     DEFAULT_AUTO_NEAREST_DEVICES,
     DEFAULT_COMMUTE_DAYS,
     DEFAULT_COMMUTE_LEAD_MIN,
+    DEFAULT_NEAREST_FALLBACK_RADIUS_M,
     DEFAULT_NEAREST_RECALC_DISTANCE_M,
     DEFAULT_NOTIFY_COOLDOWN_MIN,
     DEFAULT_NOTIFY_ENABLED,
@@ -22,6 +23,7 @@ from .const import (
     MAX_ALERTS_MAX_PER_STOP,
     MAX_ARRIVING_THRESHOLD_MIN,
     MAX_COMMUTE_LEAD_MIN,
+    MAX_NEAREST_FALLBACK_RADIUS_M,
     MAX_NEAREST_RECALC_DISTANCE_M,
     MAX_NOTIFY_COOLDOWN_MIN,
     MAX_NOTIFY_MINUTES,
@@ -30,6 +32,7 @@ from .const import (
     MIN_ALERTS_MAX_PER_STOP,
     MIN_ARRIVING_THRESHOLD_MIN,
     MIN_COMMUTE_LEAD_MIN,
+    MIN_NEAREST_FALLBACK_RADIUS_M,
     MIN_NEAREST_RECALC_DISTANCE_M,
     MIN_NOTIFY_COOLDOWN_MIN,
     MIN_NOTIFY_MINUTES,
@@ -171,6 +174,12 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             DEFAULT_NEAREST_RECALC_DISTANCE_M,
                         )
                     ),
+                    "nearest_fallback_radius_m": int(
+                        user_input.get(
+                            "nearest_fallback_radius_m",
+                            DEFAULT_NEAREST_FALLBACK_RADIUS_M,
+                        )
+                    ),
                     "notify_enabled": bool(user_input.get("notify_enabled", DEFAULT_NOTIFY_ENABLED)),
                     "notify_minutes": int(user_input.get("notify_minutes", DEFAULT_NOTIFY_MINUTES)),
                     "notify_cooldown_min": int(
@@ -210,6 +219,16 @@ class VigoBusConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Range(
                         min=MIN_NEAREST_RECALC_DISTANCE_M,
                         max=MAX_NEAREST_RECALC_DISTANCE_M,
+                    ),
+                ),
+                vol.Optional(
+                    "nearest_fallback_radius_m",
+                    default=DEFAULT_NEAREST_FALLBACK_RADIUS_M,
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(
+                        min=MIN_NEAREST_FALLBACK_RADIUS_M,
+                        max=MAX_NEAREST_FALLBACK_RADIUS_M,
                     ),
                 ),
                 vol.Optional("notify_enabled", default=DEFAULT_NOTIFY_ENABLED): bool,
@@ -333,6 +352,9 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
             "nearest_recalc_distance_m": int(
                 self._entry_value("nearest_recalc_distance_m", DEFAULT_NEAREST_RECALC_DISTANCE_M)
             ),
+            "nearest_fallback_radius_m": int(
+                self._entry_value("nearest_fallback_radius_m", DEFAULT_NEAREST_FALLBACK_RADIUS_M)
+            ),
             "notify_enabled": bool(self._entry_value("notify_enabled", DEFAULT_NOTIFY_ENABLED)),
             "notify_minutes": int(self._entry_value("notify_minutes", DEFAULT_NOTIFY_MINUTES)),
             "notify_cooldown_min": int(
@@ -434,6 +456,12 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                             DEFAULT_NEAREST_RECALC_DISTANCE_M,
                         )
                     ),
+                    "nearest_fallback_radius_m": int(
+                        user_input.get(
+                            "nearest_fallback_radius_m",
+                            DEFAULT_NEAREST_FALLBACK_RADIUS_M,
+                        )
+                    ),
                     "scan_interval": int(user_input.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
                 }
             )
@@ -462,6 +490,16 @@ class VigoBusOptionsFlow(config_entries.OptionsFlow):
                     vol.Range(
                         min=MIN_NEAREST_RECALC_DISTANCE_M,
                         max=MAX_NEAREST_RECALC_DISTANCE_M,
+                    ),
+                ),
+                vol.Optional(
+                    "nearest_fallback_radius_m",
+                    default=self._draft["nearest_fallback_radius_m"],
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(
+                        min=MIN_NEAREST_FALLBACK_RADIUS_M,
+                        max=MAX_NEAREST_FALLBACK_RADIUS_M,
                     ),
                 ),
                 vol.Optional("scan_interval", default=self._draft["scan_interval"]): vol.All(

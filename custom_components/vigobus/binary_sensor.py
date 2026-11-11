@@ -5,7 +5,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DEFAULT_ARRIVING_THRESHOLD_MIN, DOMAIN
-from .logic import estimaciones_for
+from .logic import collect_alerts, estimaciones_for, split_lines_text
 
 
 def _is_nearest_key(key):
@@ -45,7 +45,62 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 VigoBusLeaveNowBinarySensor(coordinator, key, entry.entry_id, label, line_filter)
             )
 
+    for kind, label in ALERT_KIND_BINARY_SENSORS.items():
+        entities.append(VigoBusAlertKindBinarySensor(coordinator, entry.entry_id, kind, label))
+
     async_add_entities(entities)
+
+
+# Alert kinds worth an automation trigger of their own (the generic "info" and
+# "schedule" ones are left to the alerts list / event).
+ALERT_KIND_BINARY_SENSORS = {
+    "strike": "huelga en vigor",
+    "closure": "cortes de tráfico en vigor",
+    "detour": "desvíos en vigor",
+    "stop_closed": "paradas anuladas en vigor",
+    "works": "obras en vigor",
+}
+
+
+class VigoBusAlertKindBinarySensor(CoordinatorEntity, BinarySensorEntity):
+    """On while at least one alert of a kind is in force on your stops."""
+
+    _attr_icon = "mdi:bus-alert"
+
+    def __init__(self, coordinator, entry_id, kind, label):
+        super().__init__(coordinator)
+        self._kind = kind
+        self._attr_name = f"VigoBus {label}"
+        self._attr_unique_id = f"vigobus_{entry_id}_aviso_{kind}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry_id}_servicio")},
+            name="VigoBus servicio",
+            manufacturer="VigoBus",
+            model="Servicio",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    def _alerts(self):
+        return [
+            alert
+            for alert in collect_alerts(self.coordinator.data)
+            if alert.get("kind") == self._kind and alert.get("status") == "active"
+        ]
+
+    @property
+    def is_on(self):
+        return bool(self._alerts())
+
+    @property
+    def extra_state_attributes(self):
+        alerts = self._alerts()
+        return {
+            "kind": self._kind,
+            "count": len(alerts),
+            "titles": [alert.get("title") for alert in alerts],
+            "lines": sorted({line for alert in alerts for line in split_lines_text(alert.get("lineas"))}),
+            "stops": sorted({stop for alert in alerts for stop in alert.get("stops") or []}),
+        }
 
 
 class _VigoBusBinaryBase(CoordinatorEntity, BinarySensorEntity):
